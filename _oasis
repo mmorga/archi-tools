@@ -1,0 +1,16 @@
+OASISFormat: 0.4
+BuildTools: ocamlbuild
+Plugins: META (0.4), DevFiles (0.4)
+Name: Archi
+Version: 0.1
+Synopsis: A proggy to play with Archi files.
+Authors: Mark Morga <markmorga@gmail.com>
+License: MIT
+Description: Tools to work with ArchiMate files
+Homepage: http://github.com/mmorga/archi
+Executable "archi"
+  Path: src
+  MainIs: archi.ml
+  CompiledObject: best
+  BuildDepends:
+    xml-light

@@ -7,10 +7,26 @@ Synopsis: A proggy to play with Archi files.
 Authors: Mark Morga <markmorga@gmail.com>
 License: MIT
 Description: Tools to work with ArchiMate files
-Homepage: http://github.com/mmorga/archi
+Homepage: http://github.com/mmorga/archi-tools
+
+Library "archi-tools"
+  Path: src
+  Modules: Archimate, Svg, XmlUtil
+
 Executable "archi"
   Path: src
   MainIs: archi.ml
   CompiledObject: best
-  BuildDepends:
-    xml-light
+  BuildDepends: xml-light
+
+Executable "test"
+  Path: test
+  MainIs: test.ml
+  CompiledObject: byte
+  Install: false
+  BuildDepends: xml-light, oUnit, archi-tools
+
+Test "test"
+  TestTools: test
+  Command: $test
+  WorkingDirectory: test

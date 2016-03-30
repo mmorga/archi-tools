@@ -1,3 +1,4 @@
 S src/**
+S test/**
 B _build/**
-PKG core_kernel core core_extended xml-light
+PKG xml-light ounit

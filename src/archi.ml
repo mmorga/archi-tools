@@ -16,6 +16,9 @@ let pr_dia_list dia_list =
 (*******************************************************)
 
 let archi_file = "/Users/mmorga/work/ea-architecture/ea.archimate"
-and svg_template_file = "template/diagram.svg";;
+and svg_template_file = "template/diagram.svg" in
+let archi_doc = Xml.parse_file archi_file in
+let diagrams = Archimate.find_diagrams [] archi_doc in
+let svg_doc = Svg.svg_template svg_template_file in
 
-Svg.make_svgs archi_file svg_template_file;;
+Svg.make_svgs archi_file svg_doc diagrams;;

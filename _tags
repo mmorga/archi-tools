@@ -1,0 +1,29 @@
+# OASIS_START
+# DO NOT EDIT (digest: b9b400e8cb790460ad064b6cdb9305c5)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+true: annot, bin_annot
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library archi-tools
+"src/archi-tools.cmxs": use_archi-tools
+# Executable archi
+<src/archi.{native,byte}>: pkg_xml-light
+<src/*.ml{,i,y}>: pkg_xml-light
+# Executable test
+"test/test.byte": pkg_oUnit
+"test/test.byte": pkg_xml-light
+"test/test.byte": use_archi-tools
+<test/*.ml{,i,y}>: pkg_oUnit
+<test/*.ml{,i,y}>: pkg_xml-light
+<test/*.ml{,i,y}>: use_archi-tools
+# OASIS_STOP

@@ -54,10 +54,9 @@ let rec attrib_val xdata attr_names =
       match attr_names with
       | [] -> ""
       | hd :: tl ->
-        let find_attr, _ = hd in
         let find_attr_name attr_tuple =
           let attr, attr_val = attr_tuple in
-          attr = find_attr
+          attr = hd
         in
         try
           let _, found_val = List.find find_attr_name el_attrs in
@@ -65,3 +64,17 @@ let rec attrib_val xdata attr_names =
         with Not_found ->
           attrib_val xdata tl
     )
+
+(* let rec by_id (id : string) (xdata : Xml.xml) : Xml.xml =
+  let find_func xdata =
+    id = attr_val xdata "id" in
+
+    match xdata with
+    | Xml.PCData pc -> ""
+    | Xml.Element el ->
+
+  if id = attr_val xdata "id" then
+    xdata
+  else
+    List.find find_func (Xml.children xdata);
+ *)

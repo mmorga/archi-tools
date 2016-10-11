@@ -1,14 +1,20 @@
 open Printf
 
-(*
-BADGES = {
-  "ApplicationInterface" => "#interface-badge",
-  "ApplicationInteraction" => "#interaction-badge",
-  "ApplicationCollaboration" => "#collaboration-badge",
-  "ApplicationFunction" => "#function-badge",
-  "BusinessActor" => "#actor-badge"
-}
-*)
+module BadgesMap = Map.Make(String);;
+
+
+let badges =
+  let add_badge_mapping m kv =
+    let k, v = kv in
+    BadgesMap.add k v m
+  in
+  List.fold_left add_badge_mapping BadgesMap.empty [
+    "ApplicationInterface", "#interface-badge";
+    "ApplicationInteraction", "#interaction-badge";
+    "ApplicationCollaboration", "#collaboration-badge";
+    "ApplicationFunction", "#function-badge";
+    "BusinessActor", "#actor-badge"
+  ]
 
 (*
 def draw_element_rect(xml, element, ctx)
@@ -64,12 +70,11 @@ end *)
 end
 *)
 
-let rec draw_element obj document ?context () =
-  Xml.Element ("rect", [("x", "0"); ("y", "0"); ("width", "100"); ("height", "50")], []);;
-
+let rec draw_element obj = (* document ?context () = *)
+  let rect = Xml.Element ("rect", [("x", "0"); ("y", "0"); ("width", "100"); ("height", "50")], []) in
   (* let (tag, attrs, children) = obj in *)
-  (* let bounds = List.find (fun p -> Xml.tag p = "bounds") in *)
-  (* let element_id = XmlUtil.attrib_val obj ["archimateElement"; "id"] in *)
+  let bounds = List.find (fun p -> Xml.tag p = "bounds") in
+  let element_id = XmlUtil.attrib_val obj ["archimateElement"; "id"] in
   (* let element = XmlUtil.by_id document element_id in *)
   (* group_attrs = {id: element_id, class: element_type(element)} *)
   (* group_attrs[:transform] = "translate(#{context["x"]}, #{context["y"]})" unless context.nil? *)
@@ -88,51 +93,34 @@ let rec draw_element obj document ?context () =
     (* obj.css(">child").each { |child| draw_element(xml, child, bounds)} *)
   (* } *)
 (* end *)
+  rect;;
 
-(* Construct a parser that doesn't check DTDs and parse the template SVG file *)
+(** Construct a parser that doesn't check DTDs and parse the template SVG file *)
 let svg_template svg_file =
   let p = XmlParser.make () in
   XmlParser.prove p false; (* Prevent errors trying to parse the DVD of SVG files *)
   XmlParser.parse p (XmlParser.SFile svg_file);;
 
-let draw_children child =
-  (* Make a simple rect SVG element as an XML Element *)
-  (* Xml.Element ("rect", [("x", "0"); ("y", "0"); ("width", "100"); ("height", "50")], []);; *)
+let draw_children svg_doc child =
   draw_element child;;
-  (* builder = Nokogiri::XML::Builder.with(svg) do |xml|
-    draw_element(xml, child)
-  end *)
-  (* ();; *)
 
-let make_svg archi_doc svg_template_file archi_diagram =
-  let svg_doc = svg_template svg_template_file in
+let make_svg archi_doc svg_doc archi_diagram =
   let (_, attrs, children) = match archi_diagram with
-      Xml.Element el -> el
-    | Xml.PCData pc -> (pc, [], []) in
-  let diagram_name = Xml.attrib archi_diagram "name" in
-
+    | Xml.Element el -> el
+    | Xml.PCData pc -> (pc, [], [])
+  and diagram_name = Xml.attrib archi_diagram "name"
   (* Extract the Xml.Element tuple from the parsed SVG document - TODO: gotta be a better way *)
-  let (s_tag, s_attrs, s_children) =
+  and (s_tag, s_attrs, s_children) =
     match svg_doc with
-      Xml.Element el -> el
+    | Xml.Element el -> el
     | Xml.PCData pc -> ("bogus", [], []) in
 
   (* TODO: need to annotate draw_children with the other params needed: svg_doc, others? *)
-  (* TODO: make this a map call to collect the SVG elements to add to the diagram below *)
-  (* List.iter draw_children children; *)
-  let els = List.map draw_children children in
-  ();;
-  (* TODO: write to a file *)
-  (* Insert the SVG rect element as a child of the root element producing a new SVG document *)
-  (* let done_svg = Xml.Element(s_tag, s_attrs, s_children @ els) in
-  printf "%s" (Xml.to_string_fmt done_svg);; *)
+  let els = List.map (draw_children svg_doc) children in
+  let name = Printf.sprintf "public/%s.svg" diagram_name in
+  let oc = open_out name in    (* create or truncate file, return channel *)
+  fprintf oc "%s\n" (Xml.to_string_fmt (Xml.Element(s_tag, s_attrs, s_children @ els)));
+  close_out oc;;                (* flush and close the channel *)
 
-  (* File.open("generated/#{name}.svg", "wb") do |f|
-    f.write(svg_doc.to_xml)
-  end *)
-
-let make_svgs archi_file svg_template_file =
-  () ;;
-  (* let archi_doc = Xml.parse_file archi_file in *)
-  (* let make_diagram archi_diagram = make_svg archi_doc svg_template_file in *)
-  (* List.iter (make_svg archi_doc svg_template_file) (Archimate.find_diagrams [] archi_doc);; *)
+let make_svgs archi_doc svg_doc diagrams =
+  List.iter (make_svg archi_doc svg_doc) diagrams

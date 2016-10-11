@@ -7,5 +7,6 @@ let () =
     ("ArchiMate" >:::
       [
         TestArchimate.tests;
+        TestXmlUtil.tests;
       ]
     );

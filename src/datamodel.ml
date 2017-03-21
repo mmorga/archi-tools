@@ -1,4 +1,3 @@
-open Core.Std
 
 type bendpoint = {
   start_x : float option;
@@ -16,6 +15,59 @@ type property = {
   value : string option;
 }
 
+(* TODO: make this a module to handle colors *)
+(* This stackoverflow link is an example for constrained color values:
+http://stackoverflow.com/questions/35107944/how-can-i-constrain-an-ocaml-integer-type-to-a-range-of-integers) *)
+
+module Color : sig
+  type t =
+  | Basic of basic_color * weight   (* basic colors, regular and bold *)
+  | RGB of rgbint * rgbint * rgbint (* 6x6x6 color cube *)
+  | Gray of int                     (* 24 grayscale levels *)
+  and basic_color =
+   | Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
+  and weight = Regular | Bold
+  and rgbint = private int
+  val rgb : int * int * int -> t
+end = struct
+  type t =
+  | Basic of basic_color * weight
+  | RGB   of rgbint * rgbint * rgbint
+  | Gray  of int
+  and basic_color =
+   | Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
+  and weight = Regular | Bold
+  and rgbint = int
+
+  let rgb (r, g, b) =
+    let validate x =
+      if x >= 0 && x < 6 then x else invalid_arg "Color.rgb"
+    in
+    RGB (validate r, validate g, validate b)
+  end
+(* With this definition, we can, of course, create Color.RGB values with the Color.rgb function: *)
+
+(* # Color.rgb(0,0,0);; *)
+(* - : Color.t = Color.RGB (0, 0, 0) *)
+(* It is not possible to self-assemble a Color.RGB value out of its components: *)
+
+(* # Color.RGB(0,0,0);; *)
+(* Characters 10-11: *)
+  (* Color.RGB(0,0,0);; *)
+            (* ^ *)
+(* Error: This expression has type int but an expression was expected of type *)
+(*          Color.rgbint *)
+(* It is possible to deconstruct values of type Color.rgbint as integers, using a type coercion: *)
+
+(* # match Color.rgb(0,0,0) with *)
+(*   | Color.RGB(r,g,b) -> *)
+(*     if ((r,g,b) :> int * int * int) = (0, 0, 0) then *)
+(*       "Black" *)
+(*     else *)
+(*       "Other" *)
+(*   | _ -> "Other";;       *)
+(* - : string = "Black" *)
+
 type color = {
   r : int; (*lt: 256 : gt: -1*)
   g : int; (*lt: 256 : gt: -1*)
@@ -23,7 +75,7 @@ type color = {
   a : int; (*lt: 101 : gt: -1*)
 }
 
-let validate color =
+(* let validate color =
   let module V = Validate in
     let w check = V.field_folder color check in
       V.of_list
@@ -33,7 +85,7 @@ let validate color =
           ~b:(w V.validate_bound 0 256)
           ~a:(w V.validate_bound 0 100)
         )
-
+ *)
 type font = {
   name : string;
   size : int; (* gt: 0 *)
@@ -117,13 +169,16 @@ type relationship = {
   properties : property list;
 }
 
+type archimate_version = ArchiMate2_1 | ArchiMate3_0
+
 type model = {
   id : string;
+  version : archimate_version;
   name : string;
   documentation : documentation list;
   properties : property list;
+  elements : element list;
   folders : folder list;
   relationships : relationship list;
   diagrams : diagram list;
 }
-

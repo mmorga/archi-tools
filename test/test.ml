@@ -1,4 +1,4 @@
-open OUnit2;;
+open OUnit2
 
 (* Name the test cases and group them together *)
 let () =

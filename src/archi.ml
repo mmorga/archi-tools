@@ -1,4 +1,5 @@
 open Printf
+(* open Core.Std *)
 
 (** Prints a pair - for debugging *)
 let print_pair k v =

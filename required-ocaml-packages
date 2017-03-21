@@ -3,3 +3,8 @@ oasis
 xml-light
 ounit
 core
+core_extended
+Xmlm
+ppx_fields_conv
+Fieldslib
+async

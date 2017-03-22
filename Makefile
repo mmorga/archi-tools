@@ -1,7 +1,3 @@
-#
-# Pure OCaml, no packages, no _tags, code in serveral directories
-#
-
 # bin-annot is required for Merlin and other IDE-like tools
 # - -I flag introduces sub-directories to search for code
 # - -use-ocamlfind is required to find packages (from Opam)
@@ -16,12 +12,9 @@ clean:
 			$(OCB) -clean
 
 native: 	sanity
-			# $(OCB) archi.native
-			# $(OCB) readme.native
 			$(OCB) archimate21_reader.native
 
 byte:		sanity
-			# $(OCB) archi.byte
 			$(OCB) archimate21_reader.byte
 
 profile: 	sanity
@@ -30,8 +23,8 @@ profile: 	sanity
 debug: 		sanity
 			$(OCB) -tag debug archi.byte
 
+# check that packages can be found
 sanity:
-			# check that packages can be found
 			ocamlfind query oUnit Xmlm
 
 test:

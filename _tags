@@ -1,11 +1,5 @@
-true:   package(core)
-true:   package(async)
-true:   package(core_extended)
 true:   package(oUnit)
-true:   package(xml-light)
 true:   package(Xmlm)
-true:   thread
 true:   debug
-true:   annot
 true:   bin_annot
 true:   short_paths

@@ -30,6 +30,7 @@ let attr_val attrs name =
 let parse_model i attrs depth =
   {
     id = (attr_val attrs "id");
+    version = ArchiMate2_1;
     name = attr_val attrs "name";
     documentation = [];
     elements = [];
@@ -38,6 +39,20 @@ let parse_model i attrs depth =
     relationships = [];
     diagrams = []
   }
+
+let empty_model =
+  {
+    id = "";
+    version = ArchiMate2_1;
+    name = "";
+    documentation = [];
+    elements = [];
+    properties = [];
+    folders = [];
+    relationships = [];
+    diagrams = []
+  }
+
 
 let id ic oc =
   let i = Xmlm.make_input (`Channel ic) in
@@ -54,7 +69,7 @@ let id ic oc =
       (match name with
             | "model" -> parse_model i attrs (depth + 1)
             | _ -> pull i o (depth + 1))
-    | `El_end -> if depth = 1 then () else pull i o (depth - 1)
+    | `El_end -> if depth = 1 then empty_model else pull i o (depth - 1)
     | `Data content -> pull i o depth  (* this is the text node *)
     | `Dtd _ -> assert false
   in

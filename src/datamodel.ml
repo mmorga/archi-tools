@@ -206,6 +206,16 @@ let empty_element =
     properties = [];
   }
 
+type relationship = {
+  id : string;
+  relationship_type : string;
+  source : string;
+  target : string;
+  name : string option;
+  documentation : documentation list;
+  properties : property list;
+}
+
 type folder = {
   id : string;
   name : string;
@@ -226,16 +236,6 @@ let empty_folder =
     properties = [];
     folders = [];
   }
-
-type relationship = {
-  id : string;
-  relationship_type : string;
-  source : string;
-  target : string;
-  name : string option;
-  documentation : documentation list;
-  properties : property list;
-}
 
 type archimate_version = ArchiMate2_1 | ArchiMate3_0 | None
 
@@ -268,7 +268,7 @@ type tree =
     Data of string |
     Model of model |
     Documentation of documentation |
-    Folder of folder |
+    Folder of folder * tree list |
     Element of element |
     Relationship of relationship |
     Diagram of diagram |
@@ -296,6 +296,11 @@ let data_child_content childs =
     content
   with Not_found ->
     ""
+
+let is_folder a =
+  match a with
+  | Folder _ -> true
+  | _ -> false
 
 let is_source_connection a =
   match a with
@@ -334,7 +339,7 @@ let is_folder a =
 
 let to_folder a =
   match a with
-  | Folder b -> b
+  | Folder (b, c) -> b
   | _ -> invalid_arg "Expected only folder values"
 
 let is_element a =
@@ -412,9 +417,6 @@ let find_all_nodes is_kind to_kind childs =
 
 let find_node is_kind to_kind childs =
   List.find is_kind childs |> to_kind
-  (* with Not_found -> *)
-  (*   Format.fprintf Format.std_formatter "Unable to find node"; *)
-  (*   raise Not_found *)
 
 let find_optional_node is_kind to_kind childs =
   try
@@ -435,7 +437,7 @@ let id_for_tree_node a =
   | Relationship r -> r.id
   | Diagram d -> d.id
   | Model m -> m.id
-  | Folder f -> f.id
+  | Folder (f, c) -> f.id
   | Child c -> c.id
   | Source_connection s -> s.id
   | _ -> invalid_arg "Expected arg to have an id"
@@ -444,3 +446,17 @@ let folder_items childs =
   List.filter is_folder_item childs |>
   List.map id_for_tree_node
 
+let rec find_all_in_folder is_kind to_kind folderv =
+  match folderv with
+  | Folder (f, c) ->
+    let immediate_children = find_all_nodes is_kind to_kind c in
+    let child_folders = List.filter is_folder c in
+    let folder_children =
+      List.map (find_all_in_folder is_kind to_kind) child_folders |> List.concat
+    in
+    let all_children = [immediate_children; folder_children] in
+    List.concat all_children
+  | _ -> invalid_arg "Expected a Folder"
+
+let find_all_in_folders is_kind to_kind folders =
+  List.map (find_all_in_folder is_kind to_kind) folders |> List.concat

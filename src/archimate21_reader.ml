@@ -19,16 +19,17 @@ let el tag childs =
   (* ignore(dump_attrs attrs); *)
   match name with
   | "model" ->
+    let folders = List.filter is_folder childs in
     Model {
       id = fetch "id" attribute_map;
       version = Datamodel.ArchiMate2_1;
       name = fetch "name" attribute_map;
       documentation = find_all_nodes is_documentation to_documentation childs;
       properties = find_all_nodes is_property to_property childs;
-      elements = find_all_nodes is_element to_element childs;
-      folders = find_all_nodes is_folder to_folder childs;
-      relationships = find_all_nodes is_relationship to_relationship childs;
-      diagrams = find_all_nodes is_diagram to_diagram childs;
+      elements = find_all_in_folders is_element to_element folders;
+      folders = List.map to_folder folders;
+      relationships = find_all_in_folders is_relationship to_relationship folders;
+      diagrams = find_all_in_folders is_diagram to_diagram folders;
     }
   | "documentation"
   | "purpose" ->
@@ -39,7 +40,7 @@ let el tag childs =
   | "content" ->
     Data (data_child_content childs)
   | "folder" ->
-    Folder {
+    Folder ({
       id = fetch "id" attribute_map;
       name = fetch "name" attribute_map;
       folder_type = fetch_optional "type" attribute_map;
@@ -47,7 +48,7 @@ let el tag childs =
       documentation = find_all_nodes is_documentation to_documentation childs;
       properties = find_all_nodes is_property to_property childs;
       folders = find_all_nodes is_folder to_folder childs;
-    }
+    }, childs)
   | "element" -> (
       let t = fetch_ns "http://www.w3.org/2001/XMLSchema-instance" "type" attribute_map in
       match t with
@@ -215,6 +216,8 @@ let () =
   (* ignore(in_archimate21_model (`Channel ic)); *)
   Format.fprintf Format.std_formatter "Model loaded\n";
   Format.fprintf Format.std_formatter "Element count: %d\n" (List.length model.elements);
+  Format.fprintf Format.std_formatter "Relationship count: %d\n" (List.length model.relationships);
+  Format.fprintf Format.std_formatter "Diagram count: %d\n" (List.length model.diagrams);
   Format.fprintf Format.std_formatter "Folder count: %d\n" (List.length model.folders);
   Format.fprintf Format.std_formatter "Documentation count: %d\n" (List.length model.documentation);
   Format.fprintf Format.std_formatter "Th th that's all ffolks\n";

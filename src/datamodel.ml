@@ -1,3 +1,10 @@
+type archimate_layer =
+  BusinessLayer |
+  ApplicationLayer |
+  TechnologyLayer |
+  MotivationLayer |
+  StrategyLayer |
+  Junction
 
 type bendpoint = {
   start_x : float option;
@@ -5,92 +12,15 @@ type bendpoint = {
   end_x : float option;
   end_y : float option;
 }
-let empty_bendpoint =
-  {
-    start_x = None;
-    start_y = None;
-    end_x = None;
-    end_y = None;
-  }
 
 type bounds = { x : float option; y : float option; width : float; height : float }
-let empty_bounds =
-  {
-    x = None;
-    y = None;
-    width = 0.0;
-    height = 0.0;
-  }
- 
+
 type documentation = { lang : string option; content : string }
-let empty_documentation =
-  {
-    lang = None;
-    content = "";
-  }
 
 type property = {
   key : string;
   value : string option;
 }
-let empty_property =
-  {
-    key = "";
-    value = None;
-  }
-
-(* TODO: make this a module to handle colors *)
-(* This stackoverflow link is an example for constrained color values:
-http://stackoverflow.com/questions/35107944/how-can-i-constrain-an-ocaml-integer-type-to-a-range-of-integers) *)
-
-(* module Color : sig *)
-(*   type t = *)
-(*   | Basic of basic_color * weight   (\* basic colors, regular and bold *\) *)
-(*   | RGB of rgbint * rgbint * rgbint (\* 6x6x6 color cube *\) *)
-(*   | Gray of int                     (\* 24 grayscale levels *\) *)
-(*   and basic_color = *)
-(*    | Black | Red | Green | Yellow | Blue | Magenta | Cyan | White *)
-(*   and weight = Regular | Bold *)
-(*   and rgbint = private int *)
-(*   val rgb : int * int * int -> t *)
-(* end = struct *)
-(*   type t = *)
-(*   | Basic of basic_color * weight *)
-(*   | RGB   of rgbint * rgbint * rgbint *)
-(*   | Gray  of int *)
-(*   and basic_color = *)
-(*    | Black | Red | Green | Yellow | Blue | Magenta | Cyan | White *)
-(*   and weight = Regular | Bold *)
-(*   and rgbint = int *)
-
-(*   let rgb (r, g, b) = *)
-(*     let validate x = *)
-(*       if x >= 0 && x < 6 then x else invalid_arg "Color.rgb" *)
-(*     in *)
-(*     RGB (validate r, validate g, validate b) *)
-(*   end *)
-(* With this definition, we can, of course, create Color.RGB values with the Color.rgb function: *)
-
-(* # Color.rgb(0,0,0);; *)
-(* - : Color.t = Color.RGB (0, 0, 0) *)
-(* It is not possible to self-assemble a Color.RGB value out of its components: *)
-
-(* # Color.RGB(0,0,0);; *)
-(* Characters 10-11: *)
-  (* Color.RGB(0,0,0);; *)
-            (* ^ *)
-(* Error: This expression has type int but an expression was expected of type *)
-(*          Color.rgbint *)
-(* It is possible to deconstruct values of type Color.rgbint as integers, using a type coercion: *)
-
-(* # match Color.rgb(0,0,0) with *)
-(*   | Color.RGB(r,g,b) -> *)
-(*     if ((r,g,b) :> int * int * int) = (0, 0, 0) then *)
-(*       "Black" *)
-(*     else *)
-(*       "Other" *)
-(*   | _ -> "Other";;       *)
-(* - : string = "Black" *)
 
 type color = {
   r : int; (*lt: 256 : gt: -1*)
@@ -124,15 +54,6 @@ type style = {
   line_width : int option;
   font : font option;
 }
-let empty_style =
-  {
-    text_alignment = None;
-    fill_color = None;
-    line_color = None;
-    font_color = None;
-    line_width = None;
-    font = None;
-  }
 
 type source_connection = {
   id : string;
@@ -161,21 +82,6 @@ type child = {
   properties : property list;
   style : style option;
 }
-let empty_child =
-  {
-    id = "";
-    child_type = "";
-    model = None;
-    name = None;
-    target_connections = None;
-    archimate_element = None;
-    bounds = empty_bounds;
-    children = [];
-    source_connections = [];
-    documentation = [];
-    properties = [];
-    style = None;
-  }
 
 type diagram = {
   id : string;
@@ -192,19 +98,11 @@ type diagram = {
 type element = {
   id : string;
   element_type : string option;
+  layer : archimate_layer;
   label : string option;
   documentation : documentation list;
   properties : property list;
 }
-
-let empty_element =
-  {
-    id = "";
-    element_type = None;
-    label = None;
-    documentation = [];
-    properties = [];
-  }
 
 type relationship = {
   id : string;
@@ -226,17 +124,6 @@ type folder = {
   folders : folder list;
 }
 
-let empty_folder =
-  {
-    id = "";
-    name = "";
-    folder_type = None;
-    items = [];
-    documentation = [];
-    properties = [];
-    folders = [];
-  }
-
 type archimate_version = ArchiMate2_1 | ArchiMate3_0 | None
 
 type model = {
@@ -251,19 +138,7 @@ type model = {
   diagrams : diagram list;
 }
 
-let empty_model =
-  {
-    id = "";
-    version = None;
-    name = "";
-    documentation = [];
-    properties = [];
-    elements = [];
-    folders = [];
-    relationships = [];
-    diagrams = [];
-  }
-
+(* Tree type for XML parsing *)
 type tree =
     Data of string |
     Model of model |
@@ -280,37 +155,82 @@ type tree =
     Property of property |
     Unknown of string
 
-let find_data_item a =
+
+let is_bendpoint a =
   match a with
-  | Data _ -> true
+  | Bendpoint _ -> true
   | _ -> false
 
-let data_child_content childs =
-  try
-    let data_item = List.find find_data_item childs in
-    let content =
-      match data_item with
-      | Data s -> s
-      | _ -> ""
-    in
-    content
-  with Not_found ->
-    ""
+let to_bendpoint bv =
+  match bv with
+  | Bendpoint b -> b
+  | _ -> invalid_arg "Expected only bendpoint values"
+
+let is_bounds a =
+  match a with
+  | Bounds _ -> true
+  | _ -> false
+
+let to_bounds bv =
+  match bv with
+  | Bounds b -> b
+  | _ -> invalid_arg "Expected only bounds values"
+
+let is_child a =
+  match a with
+  | Child _ -> true
+  | _ -> false
+
+let to_child a =
+  match a with
+  | Child c -> c
+  | _ -> invalid_arg "Expected only child values"
+
+let is_diagram a =
+  match a with
+  | Diagram _ -> true
+  | _ -> false
+
+let to_diagram n =
+  match n with
+  | Diagram d -> d
+  | _ -> invalid_arg "Expected only diagram values"
+
+let is_documentation a =
+  match a with
+  | Documentation _ -> true
+  | _ -> false
+
+let to_documentation a =
+  match a with
+  |  Documentation d -> d
+  | _ -> invalid_arg "Expected only documentation values"
+
+let is_element a =
+  match a with
+  | Element _ -> true
+  | _ -> false
+
+let to_element a =
+  match a with
+  | Element b -> b
+  | _ -> invalid_arg "Expected only element values"
 
 let is_folder a =
   match a with
   | Folder _ -> true
   | _ -> false
 
-let is_source_connection a =
+let to_folder a =
   match a with
-  | Source_connection _ -> true
-  | _ -> false
+  | Folder (b, c) -> b
+  | _ -> invalid_arg "Expected only folder values"
 
-let to_source_connection bv =
-  match bv with
-  | Source_connection b -> b
-  | _ -> invalid_arg "Expected only source_connection values"
+let filter_folders childs =
+  List.filter is_folder childs
+
+let filter_folder_recs childs =
+  filter_folders childs |> List.map to_folder
 
 let is_property a =
   match a with
@@ -332,25 +252,15 @@ let to_relationship a =
   | Relationship b -> b
   | _ -> invalid_arg "Expected only relationship values"
 
-let is_folder a =
+let is_source_connection a =
   match a with
-  | Folder _ -> true
+  | Source_connection _ -> true
   | _ -> false
 
-let to_folder a =
-  match a with
-  | Folder (b, c) -> b
-  | _ -> invalid_arg "Expected only folder values"
-
-let is_element a =
-  match a with
-  | Element _ -> true
-  | _ -> false
-
-let to_element a =
-  match a with
-  | Element b -> b
-  | _ -> invalid_arg "Expected only element values"
+let to_source_connection bv =
+  match bv with
+  | Source_connection b -> b
+  | _ -> invalid_arg "Expected only source_connection values"
 
 let is_style a =
   match a with
@@ -362,55 +272,23 @@ let to_style a =
   | Style b -> b
   | _ -> invalid_arg "Expected only style values"
 
-let is_bendpoint a =
-  match a with
-  | Bendpoint _ -> true
-  | _ -> false
-
-let to_bendpoint bv =
-  match bv with
-  | Bendpoint b -> b
-  | _ -> invalid_arg "Expected only bendpoint values"
-
-let is_diagram a =
-  match a with
-  | Diagram _ -> true
-  | _ -> false
-
-let to_diagram n =
-  match n with
-  | Diagram d -> d
-  | _ -> invalid_arg "Expected only diagram values"
-
-let is_bounds a =
-  match a with
-  | Bounds _ -> true
-  | _ -> false
-
-let to_bounds bv =
-  match bv with
-  | Bounds b -> b
-  | _ -> invalid_arg "Expected only bounds values"
-
-let is_documentation a =
-  match a with
-  | Documentation _ -> true
-  | _ -> false
-
-let to_documentation a =
-  match a with
-  |  Documentation d -> d
-  | _ -> invalid_arg "Expected only documentation values"
-
-let is_child a =
-  match a with
-  | Child _ -> true
-  | _ -> false
-
-let to_child a =
-  match a with
-  | Child c -> c
-  | _ -> invalid_arg "Expected only child values"
+(* Return the string content of Data nodes in a list of children *)
+let data_child_content childs =
+  let find_data_item a =
+    match a with
+    | Data _ -> true
+    | _ -> false
+  in
+  try
+    let data_item = List.find find_data_item childs in
+    let content =
+      match data_item with
+      | Data s -> s
+      | _ -> ""
+    in
+    content
+  with Not_found ->
+    ""
 
 let find_all_nodes is_kind to_kind childs =
   List.filter is_kind childs |> List.map to_kind
@@ -450,7 +328,7 @@ let rec find_all_in_folder is_kind to_kind folderv =
   match folderv with
   | Folder (f, c) ->
     let immediate_children = find_all_nodes is_kind to_kind c in
-    let child_folders = List.filter is_folder c in
+    let child_folders = filter_folders c in
     let folder_children =
       List.map (find_all_in_folder is_kind to_kind) child_folders |> List.concat
     in
@@ -460,3 +338,4 @@ let rec find_all_in_folder is_kind to_kind folderv =
 
 let find_all_in_folders is_kind to_kind folders =
   List.map (find_all_in_folder is_kind to_kind) folders |> List.concat
+

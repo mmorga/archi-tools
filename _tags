@@ -2,7 +2,8 @@ true:   package(oUnit)
 true:   package(Xmlm)
 true:   package(Cmdliner)
 true:   package(ANSITerminal)
-true:   package(Tyxml)
+true:   package(Tyxml.ppx)
+true:   package(Mustache)
 true:   debug
 true:   bin_annot
 true:   short_paths

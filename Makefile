@@ -5,27 +5,39 @@
 
 OCB_FLAGS = -use-ocamlfind -I src
 OCB = 		ocamlbuild $(OCB_FLAGS)
+OPAM_LIBS = oUnit Xmlm Cmdliner ANSITerminal tyxml-ppx ocamlify mustache
+OPAM_PKGS = oUnit Xmlm Cmdliner ANSITerminal tyxml.ppx mustache
+RESOURCES = resources/archimate.css resources/svg_template.svg.mustache
+GEN_SRC = src/svg_template.ml
 
 all: 		native # byte profile debug
 
+setup:
+			opam install $(OPAM_LIBS)
+
+src/svg_template.ml: $(RESOURCES)
+			ocamlify --var-string svg resources/svg_template.svg.mustache > src/svg_template.ml
+			ocamlify --var-string css resources/archimate.css >> src/svg_template.ml
+
 clean:
 			$(OCB) -clean
+			rm $(GEN_SRC)
 
-native: 	sanity
+native: 	sanity $(GEN_SRC)
 			$(OCB) archi.native
 
-byte:		sanity
+byte:		sanity $(GEN_SRC)
 			$(OCB) archi.byte
 
-profile: 	sanity
+profile: 	sanity $(GEN_SRC)
 			$(OCB) -tag profile archi.native
 
-debug: 		sanity
+debug: 		sanity $(GEN_SRC)
 			$(OCB) -tag debug archi.byte
 
 # check that packages can be found
 sanity:
-			ocamlfind query oUnit Xmlm
+			ocamlfind query $(OPAM_PKGS)
 
 test:
 			$(OCB) -I test test.native

@@ -6,5 +6,6 @@ PKG Xmlm
 PKG Cmdliner
 PKG ANSITerminal
 PKG Tyxml
+PKG Mustache
 NOREC
 EXT ounit

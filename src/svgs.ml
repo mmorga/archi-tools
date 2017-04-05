@@ -36,28 +36,30 @@ let update_viewbox els rels =
     let min_y = 0.0 in
     (min_x, min_y, width, height)
 
-let diagram_to_svg m (d : Datamodel.diagram) : Tyxml.Svg.doc =
+let diagram_to_svg m (d : Datamodel.diagram) : string =
   let els = List.map (render_element m) d.children in
   let rels = render_relationships d in
   let viewbox = update_viewbox els rels in
-  let (_, _, width, height) = viewbox in
-  let svg_attrs id els rels =
-    [
-      (* TODO: calculate max extents and set attrs *)
-      a_version "1.1";
-      a_id id;
-      a_width (width, None);
-      a_height (height, None);
-      a_viewBox viewbox
+  let (min_x, min_y, width, height) = viewbox in
+  let template = Mustache.of_string Svg_template.svg in
+  let contents = List.map (Format.asprintf "%a" (Svg.pp_elt ())) (List.concat [els; rels])
+  in
+  let json = `O [
+      "stylesheet", `String Svg_template.css;
+      "min_x", `Float min_x;
+      "min_y", `Float min_y;
+      "width", `Float width;
+      "height", `Float height;
+      "content", `String (String.concat "\n" contents)
     ]
   in
-  svg ~a:(svg_attrs d.id els rels) (List.concat [els; rels])
+  Mustache.render template json
 
 let export outdir m (d : Datamodel.diagram) =
   let filename = sprintf "%s/%s.svg" outdir d.id in
   let svg_file = open_out filename in
   let fmt = Format.formatter_of_out_channel svg_file in
-  Svg.pp () fmt (diagram_to_svg m d);
+  fprintf fmt "%s" (diagram_to_svg m d);
   close_out svg_file
 
 let svgs outdir m =

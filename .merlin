@@ -3,5 +3,8 @@ S test
 B _build/**
 PKG ounit
 PKG Xmlm
+PKG Cmdliner
+PKG ANSITerminal
+PKG Tyxml
 NOREC
 EXT ounit

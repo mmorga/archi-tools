@@ -68,9 +68,61 @@ type source_connection = {
   style : style option;
 }
 
+type element_type =
+  AndJunction |
+  Junction |
+  OrJunction |
+  BusinessActor |
+  BusinessCollaboration |
+  BusinessEvent |
+  BusinessFunction |
+  BusinessInteraction |
+  BusinessInterface |
+  BusinessObject |
+  BusinessProcess |
+  BusinessRole |
+  BusinessService |
+  Contract |
+  Meaning |
+  Product |
+  Representation |
+  Value |
+  ApplicationCollaboration |
+  ApplicationComponent |
+  ApplicationFunction |
+  ApplicationInteraction |
+  ApplicationInterface |
+  ApplicationService |
+  DataObject |
+  Artifact |
+  CommunicationPath |
+  Device |
+  InfrastructureFunction |
+  InfrastructureInterface |
+  InfrastructureService |
+  Network |
+  Node |
+  SystemSoftware |
+  Assessment |
+  Constraint |
+  Driver |
+  Goal |
+  Principle |
+  Requirement |
+  Stakeholder |
+  Deliverable |
+  Gap |
+  Location |
+  Plateau |
+  WorkPackage |
+  DiagramModelReference |
+  Group |
+  DiagramObject
+
+
 type child = {
   id : string;
-  child_type : string;
+  c_type : element_type;
   model : string option;
   name : string option;
   target_connections : string option;
@@ -83,6 +135,10 @@ type child = {
   style : style option;
 }
 
+type diagram_type =
+    Sketch |
+    Diagram
+
 type diagram = {
   id : string;
   name : string;
@@ -92,21 +148,36 @@ type diagram = {
   children : child list;
   (* element_references : string list; *)
   connection_router_type : int option;
-  diagram_type : string option;
+  dia_type : diagram_type;
 }
 
 type element = {
   id : string;
-  element_type : string option;
+  el_type : element_type;
   layer : archimate_layer;
   label : string option;
   documentation : documentation list;
   properties : property list;
 }
 
+(* type el_child_types = [element_type | child_type] (\* combo of child_type and element_type *\) *)
+
+type relationship_type =
+    Access |
+    Aggregation |
+    Assignment |
+    Association |
+    Composition |
+    Flow |
+    Influence |
+    Realization |
+    Specialization |
+    Triggering |
+    UsedBy
+
 type relationship = {
   id : string;
-  relationship_type : string;
+  rel_type : relationship_type;
   source : string;
   target : string;
   name : string option;

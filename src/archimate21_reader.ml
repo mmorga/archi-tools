@@ -29,9 +29,17 @@ let make_bounds attribute_map =
   }
 
 let make_child attribute_map childs =
+  let xsi_type = fetch_ns "http://www.w3.org/2001/XMLSchema-instance" "type" attribute_map in
+  let c_type =
+    match xsi_type with
+    | "archimate:DiagramModelReference" -> DiagramModelReference
+    | "archimate:Group" -> Group
+    | "archimate:DiagramObject" -> DiagramObject
+    | _ -> invalid_arg ("Unexpected Child xsi:type " ^ xsi_type)
+  in
   Child {
     id = fetch "id" attribute_map;
-    child_type = fetch_ns "http://www.w3.org/2001/XMLSchema-instance" "type" attribute_map;
+    c_type = c_type;
     model = fetch_optional "model" attribute_map;
     name = fetch_optional "name" attribute_map;
     target_connections = fetch_optional "targetConnections" attribute_map;
@@ -44,7 +52,7 @@ let make_child attribute_map childs =
     properties = find_all_nodes is_property to_property childs;
   }
 
-let make_diagram attribute_map childs =
+let make_diagram d_type attribute_map childs =
   Diagram {
     id = fetch "id" attribute_map;
     name = fetch "name" attribute_map;
@@ -53,13 +61,13 @@ let make_diagram attribute_map childs =
     properties = find_all_nodes is_property to_property childs;
     children = find_all_nodes is_child to_child childs;
     connection_router_type = fetch_optional_int "connectionRouterType" attribute_map;
-    diagram_type = fetch_optional "diagramType" attribute_map;
+    dia_type = d_type
   }
 
-let make_element attribute_map layer childs =
+let make_element (el_type : element_type) layer attribute_map childs =
   Element {
     id = fetch "id" attribute_map;
-    element_type = fetch_optional "type" attribute_map;
+    el_type = el_type;
     layer = layer;
     label = fetch_optional "label" attribute_map;
     documentation = find_all_nodes is_documentation to_documentation childs;
@@ -103,12 +111,11 @@ let make_property attribute_map =
     value = fetch_optional "value" attribute_map;
   }
 
-let make_relationship attribute_map childs =
+let make_relationship (t : relationship_type) attribute_map childs =
   Relationship {
     id = fetch "id" attribute_map;
     name = fetch_optional "name" attribute_map;
-    (* TODO: strip off the "" prefix from type *)
-    relationship_type = fetch_ns "http://www.w3.org/2001/XMLSchema-instance" "type" attribute_map;
+    rel_type = t;
     source = fetch "source" attribute_map;
     target = fetch "target" attribute_map;
     documentation = find_all_nodes is_documentation to_documentation childs;
@@ -129,6 +136,84 @@ let make_source_connection attribute_map childs =
     style = find_optional_node is_style to_style childs;
   }
 
+let make_folder_item attribute_map childs =
+  let el_type =
+    let strip_archimate s = String.sub s 10 ((String.length s) - 10) in
+    fetch_ns "http://www.w3.org/2001/XMLSchema-instance" "type" attribute_map |>
+    strip_archimate
+  in
+  let r (rt : relationship_type) : tree =
+    make_relationship rt attribute_map childs
+  in
+  let e (et : element_type) el : tree =
+    make_element et el attribute_map childs
+  in
+  let d (dt : diagram_type) : tree =
+    make_diagram dt attribute_map childs
+  in
+  match el_type with
+  | "AccessRelationship"         -> r Access
+  | "AggregationRelationship"    -> r Aggregation
+  | "AssignmentRelationship"     -> r Assignment
+  | "AssociationRelationship"    -> r Association
+  | "CompositionRelationship"    -> r Composition
+  | "FlowRelationship"           -> r Flow
+  | "InfluenceRelationship"      -> r Influence
+  | "RealisationRelationship"    -> r Realization
+  | "SpecialisationRelationship" -> r Specialization
+  | "TriggeringRelationship"     -> r Triggering
+  | "UsedByRelationship"         -> r UsedBy
+  | "SketchModel"                -> d Sketch
+  | "ArchimateDiagramModel"      -> d Diagram
+  | "AndJunction"                -> e AndJunction Junction
+  | "Junction"                   -> e Junction Junction
+  | "OrJunction"                 -> e OrJunction Junction
+  | "BusinessActor"              -> e BusinessActor BusinessLayer
+  | "BusinessCollaboration"      -> e BusinessCollaboration BusinessLayer
+  | "BusinessEvent"              -> e BusinessEvent BusinessLayer
+  | "BusinessFunction"           -> e BusinessFunction BusinessLayer
+  | "BusinessInteraction"        -> e BusinessInteraction BusinessLayer
+  | "BusinessInterface"          -> e BusinessInterface BusinessLayer
+  | "BusinessObject"             -> e BusinessObject BusinessLayer
+  | "BusinessProcess"            -> e BusinessProcess BusinessLayer
+  | "BusinessRole"               -> e BusinessRole BusinessLayer
+  | "BusinessService"            -> e BusinessService BusinessLayer
+  | "Contract"                   -> e Contract BusinessLayer
+  | "Location"                   -> e Location BusinessLayer
+  | "Meaning"                    -> e Meaning BusinessLayer
+  | "Product"                    -> e Product BusinessLayer
+  | "Representation"             -> e Representation BusinessLayer
+  | "Value"                      -> e Value BusinessLayer
+  | "ApplicationCollaboration"   -> e ApplicationCollaboration ApplicationLayer
+  | "ApplicationComponent"       -> e ApplicationComponent ApplicationLayer
+  | "ApplicationFunction"        -> e ApplicationFunction ApplicationLayer
+  | "ApplicationInteraction"     -> e ApplicationInteraction ApplicationLayer
+  | "ApplicationInterface"       -> e ApplicationInterface ApplicationLayer
+  | "ApplicationService"         -> e ApplicationService ApplicationLayer
+  | "DataObject"                 -> e DataObject ApplicationLayer
+  | "Artifact"                   -> e Artifact TechnologyLayer
+  | "CommunicationPath"          -> e CommunicationPath TechnologyLayer
+  | "Device"                     -> e Device TechnologyLayer
+  | "InfrastructureFunction"     -> e InfrastructureFunction TechnologyLayer
+  | "InfrastructureInterface"    -> e InfrastructureInterface TechnologyLayer
+  | "InfrastructureService"      -> e InfrastructureService TechnologyLayer
+  | "Network"                    -> e Network TechnologyLayer
+  | "Node"                       -> e Node TechnologyLayer
+  | "SystemSoftware"             -> e SystemSoftware TechnologyLayer
+  | "Assessment"                 -> e Assessment MotivationLayer
+  | "Constraint"                 -> e Constraint MotivationLayer
+  | "Driver"                     -> e Driver MotivationLayer
+  | "Goal"                       -> e Goal MotivationLayer
+  | "Principle"                  -> e Principle MotivationLayer
+  | "Requirement"                -> e Requirement MotivationLayer
+  | "Stakeholder"                -> e Stakeholder MotivationLayer
+  | "Deliverable"                -> e Deliverable StrategyLayer
+  | "Gap"                        -> e Gap StrategyLayer
+  | "Plateau"                    -> e Plateau StrategyLayer
+  | "WorkPackage"                -> e WorkPackage StrategyLayer
+  | _ ->
+    invalid_arg ("Unsupported element type " ^ el_type)
+
 (* called by Xmlm.input_doc_tree for each XML element in the file *)
 let el tag childs =
   let (ns, name), attrs = tag in
@@ -143,83 +228,8 @@ let el tag childs =
     Data (data_child_content childs)
   | "folder" ->
     make_folder attribute_map childs
-  | "element" -> (
-      let el_type =
-        let strip_archimate s = String.sub s 10 ((String.length s) - 10) in
-        fetch_ns "http://www.w3.org/2001/XMLSchema-instance" "type" attribute_map |>
-        strip_archimate
-      in
-      match el_type with
-      | "AccessRelationship"
-      | "AggregationRelationship"
-      | "AssignmentRelationship"
-      | "AssociationRelationship"
-      | "CompositionRelationship"
-      | "FlowRelationship"
-      | "InfluenceRelationship"
-      | "RealisationRelationship"
-      | "SpecialisationRelationship"
-      | "TriggeringRelationship"
-      | "UsedByRelationship" ->
-        make_relationship attribute_map childs
-      | "SketchModel"
-      | "ArchimateDiagramModel" ->
-        make_diagram attribute_map childs
-      | "AndJunction"
-      | "Junction"
-      | "OrJunction" ->
-        make_element attribute_map Junction childs
-      | "BusinessActor"
-      | "BusinessCollaboration"
-      | "BusinessEvent"
-      | "BusinessFunction"
-      | "BusinessInteraction"
-      | "BusinessInterface"
-      | "BusinessObject"
-      | "BusinessProcess"
-      | "BusinessRole"
-      | "BusinessService"
-      | "Contract"
-      | "Meaning"
-      | "Product"
-      | "Representation"
-      | "Value" ->
-        make_element attribute_map BusinessLayer childs
-      | "ApplicationCollaboration"
-      | "ApplicationComponent"
-      | "ApplicationFunction"
-      | "ApplicationInteraction"
-      | "ApplicationInterface"
-      | "ApplicationService"
-      | "DataObject" ->
-        make_element attribute_map ApplicationLayer childs
-      | "Artifact"
-      | "CommunicationPath"
-      | "Device"
-      | "InfrastructureFunction"
-      | "InfrastructureInterface"
-      | "InfrastructureService"
-      | "Network"
-      | "Node"
-      | "SystemSoftware" ->
-        make_element attribute_map TechnologyLayer childs
-      | "Assessment"
-      | "Constraint"
-      | "Driver"
-      | "Goal"
-      | "Principle"
-      | "Requirement"
-      | "Stakeholder" ->
-        make_element attribute_map MotivationLayer childs
-      | "Deliverable"
-      | "Gap"
-      | "Location"
-      | "Plateau"
-      | "WorkPackage" ->
-        make_element attribute_map StrategyLayer childs
-      | _ ->
-        invalid_arg ("Unsupported element type " ^ el_type)
-    )
+  | "element" ->
+    make_folder_item attribute_map childs
   | "bendpoint" ->
     make_bendpoint attribute_map
   | "bounds" ->
@@ -241,16 +251,7 @@ let in_archimate21_model src =
   let i = Xmlm.make_input ~strip:true src in
   Xmlm.input_doc_tree ~el ~data i
 
-(**************************************************************************************)
-(* Testing below here *)
-(**************************************************************************************)
-
-let () =
-  let file = match Array.length Sys.argv with
-    | 2 -> Sys.argv.(1)
-    | 1 -> "test/Archisurance.archimate"
-    | _ -> invalid_arg "Expected one Archi file argument"
-  in
+let read file =
   let ic = open_in file in
   let dtd, tree_model = in_archimate21_model (`Channel ic) in
   let model =
@@ -258,10 +259,5 @@ let () =
     | Model m -> m
     | _ -> failwith "Whelp, I didn't expect that"
   in
-  Format.fprintf Format.std_formatter "Model loaded\n";
-  Format.fprintf Format.std_formatter "Element count: %d\n" (List.length model.elements);
-  Format.fprintf Format.std_formatter "Relationship count: %d\n" (List.length model.relationships);
-  Format.fprintf Format.std_formatter "Diagram count: %d\n" (List.length model.diagrams);
-  Format.fprintf Format.std_formatter "Folder count: %d\n" (List.length model.folders);
-  Format.fprintf Format.std_formatter "Documentation count: %d\n" (List.length model.documentation);
-  Format.fprintf Format.std_formatter "Th th that's all ffolks\n";
+  model
+

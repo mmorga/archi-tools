@@ -12,10 +12,10 @@ clean:
 			$(OCB) -clean
 
 native: 	sanity
-			$(OCB) archimate21_reader.native
+			$(OCB) archi.native
 
 byte:		sanity
-			$(OCB) archimate21_reader.byte
+			$(OCB) archi.byte
 
 profile: 	sanity
 			$(OCB) -tag profile archi.native

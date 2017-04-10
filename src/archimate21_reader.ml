@@ -30,48 +30,56 @@ let make_bounds attribute_map =
 
 let make_child attribute_map childs =
   let xsi_type = fetch_ns "http://www.w3.org/2001/XMLSchema-instance" "type" attribute_map in
-  let c_type =
+  let el_type =
     match xsi_type with
     | "archimate:DiagramModelReference" -> DiagramModelReference
     | "archimate:Group" -> Group
     | "archimate:DiagramObject" -> DiagramObject
+    | "archimate:Note" -> Note
+    | "archimate:SketchModelSticky" -> SketchModelSticky
     | _ -> invalid_arg ("Unexpected Child xsi:type " ^ xsi_type)
   in
   Child {
     id = fetch "id" attribute_map;
-    c_type = c_type;
-    model = fetch_optional "model" attribute_map;
-    name = fetch_optional "name" attribute_map;
-    target_connections = fetch_optional "targetConnections" attribute_map;
-    archimate_element = fetch_optional "archimateElement" attribute_map;
-    bounds = find_node is_bounds to_bounds childs;
-    style = find_optional_node is_style to_style childs;
-    children = find_all_nodes is_child to_child childs;
-    source_connections = find_all_nodes is_source_connection to_source_connection childs;
     documentation = find_all_nodes is_documentation to_documentation childs;
     properties = find_all_nodes is_property to_property childs;
+    node = {
+      el_type = el_type;
+      model = fetch_optional "model" attribute_map;
+      name = fetch_optional "name" attribute_map;
+      target_connections = fetch_optional "targetConnections" attribute_map;
+      archimate_element = fetch_optional "archimateElement" attribute_map;
+      bounds = find_node is_bounds to_bounds childs;
+      style = find_optional_node is_style to_style childs;
+      children = find_all_nodes is_child to_child childs;
+      source_connections = find_all_nodes is_source_connection to_source_connection childs;
+    };
   }
 
 let make_diagram d_type attribute_map childs =
   Diagram {
     id = fetch "id" attribute_map;
-    name = fetch "name" attribute_map;
-    viewpoint = fetch_optional "viewpoint" attribute_map;
     documentation = find_all_nodes is_documentation to_documentation childs;
     properties = find_all_nodes is_property to_property childs;
-    children = find_all_nodes is_child to_child childs;
-    connection_router_type = fetch_optional_int "connectionRouterType" attribute_map;
-    dia_type = d_type
+    node = {
+      name = fetch "name" attribute_map;
+      viewpoint = fetch_optional "viewpoint" attribute_map;
+      children = find_all_nodes is_child to_child childs;
+      connection_router_type = fetch_optional_int "connectionRouterType" attribute_map;
+      dia_type = d_type
+    };
   }
 
 let make_element (el_type : element_type) layer attribute_map childs =
   Element {
     id = fetch "id" attribute_map;
-    el_type = el_type;
-    layer = layer;
-    label = fetch_optional "label" attribute_map;
     documentation = find_all_nodes is_documentation to_documentation childs;
     properties = find_all_nodes is_property to_property childs;
+    node = {
+      el_type = el_type;
+      layer = layer;
+      name = fetch_optional "label" attribute_map;
+    };
   }
 
 let make_documentation attribute_map childs =
@@ -83,26 +91,30 @@ let make_documentation attribute_map childs =
 let make_folder attribute_map childs =
   Folder ({
       id = fetch "id" attribute_map;
-      name = fetch "name" attribute_map;
-      folder_type = fetch_optional "type" attribute_map;
-      items = folder_items childs;
       documentation = find_all_nodes is_documentation to_documentation childs;
       properties = find_all_nodes is_property to_property childs;
-      folders = filter_folder_recs childs;
+      node = {
+        name = fetch "name" attribute_map;
+        folder_type = fetch_optional "type" attribute_map;
+        items = folder_items childs;
+        folders = filter_folder_recs childs;
+      };
     }, childs)
 
 let make_model attribute_map childs =
   let folders = filter_folders childs in
   Model {
     id = fetch "id" attribute_map;
-    version = Datamodel.ArchiMate2_1;
-    name = fetch "name" attribute_map;
     documentation = find_all_nodes is_documentation to_documentation childs;
     properties = find_all_nodes is_property to_property childs;
-    folders = List.map to_folder folders;
-    elements = find_all_in_folders is_element to_element folders;
-    relationships = find_all_in_folders is_relationship to_relationship folders;
-    diagrams = find_all_in_folders is_diagram to_diagram folders;
+    node = {
+      version = Datamodel.ArchiMate2_1;
+      name = fetch "name" attribute_map;
+      folders = List.map to_folder folders;
+      elements = find_all_in_folders is_element to_element folders;
+      relationships = find_all_in_folders is_relationship to_relationship folders;
+      diagrams = find_all_in_folders is_diagram to_diagram folders;
+    };
   }
 
 let make_property attribute_map =
@@ -114,26 +126,30 @@ let make_property attribute_map =
 let make_relationship (t : relationship_type) attribute_map childs =
   Relationship {
     id = fetch "id" attribute_map;
-    name = fetch_optional "name" attribute_map;
-    rel_type = t;
-    source = fetch "source" attribute_map;
-    target = fetch "target" attribute_map;
     documentation = find_all_nodes is_documentation to_documentation childs;
     properties = find_all_nodes is_property to_property childs;
+    node = {
+      name = fetch_optional "name" attribute_map;
+      rel_type = t;
+      source = fetch "source" attribute_map;
+      target = fetch "target" attribute_map;
+    };
   }
 
 let make_source_connection attribute_map childs =
   Source_connection {
     id = fetch "id" attribute_map;
-    source = fetch "source" attribute_map;
-    target = fetch "target" attribute_map;
-    relationship = fetch_optional "relationship" attribute_map;
-    name = fetch_optional "name" attribute_map;
-    source_connection_type = fetch_optional "sourceConnectionType" attribute_map;
-    bendpoints = find_all_nodes is_bendpoint to_bendpoint childs;
     documentation = find_all_nodes is_documentation to_documentation childs;
     properties = find_all_nodes is_property to_property childs;
-    style = find_optional_node is_style to_style childs;
+    node = {
+      source = fetch "source" attribute_map;
+      target = fetch "target" attribute_map;
+      relationship = fetch_optional "relationship" attribute_map;
+      name = fetch_optional "name" attribute_map;
+      source_connection_type = fetch_optional "sourceConnectionType" attribute_map;
+      bendpoints = find_all_nodes is_bendpoint to_bendpoint childs;
+      style = find_optional_node is_style to_style childs;
+    };
   }
 
 let make_folder_item attribute_map childs =
@@ -251,7 +267,7 @@ let in_archimate21_model src =
   let i = Xmlm.make_input ~strip:true src in
   Xmlm.input_doc_tree ~el ~data i
 
-let read file =
+let read file : Datamodel.model =
   let ic = open_in file in
   let dtd, tree_model = in_archimate21_model (`Channel ic) in
   let model =

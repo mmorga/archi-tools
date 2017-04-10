@@ -4,6 +4,7 @@ true:   package(Cmdliner)
 true:   package(ANSITerminal)
 true:   package(Tyxml.ppx)
 true:   package(Mustache)
+true:   package(Str)
 true:   debug
 true:   bin_annot
 true:   short_paths

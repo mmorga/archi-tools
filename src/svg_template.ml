@@ -11,7 +11,7 @@ let svg =
   \     viewBox=\"{{ min_x }} {{ min_y }} {{ width }} {{ height }}\">\n\
   \    <style type=\"text/css\" >\n\
   \      <![CDATA[\n\
-  \       {{ stylesheet }}\n\
+  \       {{{ stylesheet }}}\n\
   \     ]]>\n\
   \    </style>\n\
   \    <defs>\n\

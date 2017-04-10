@@ -18,10 +18,10 @@ let map_attributes attrs =
   List.fold_right add_attr_map attrs AttributeMap.empty
 
 let has_type key v =
-  key == ("", "type")
+  key = ("", "type")
 
 let key_exists key k v =
-  k == ("", key)
+  k = ("", key)
 
 let fetch_ns ns key m =
   try
@@ -56,3 +56,16 @@ let fetch_optional_int key m =
 let fetch_float key m =
   float_of_string (fetch key m)
 
+let print_attribute_map attribute_map =
+  Format.open_hvbox 2;
+  Format.print_string "AttributeMap (";
+  AttributeMap.iter (fun nk v ->
+      let k =
+        match nk with
+        | "", k -> k
+        | n, k -> n ^ ":" ^ k
+      in
+      Format.open_hbox (); Format.print_string (k ^ " = \"" ^ v ^ "\", "); Format.close_box ();
+    ) attribute_map;
+  Format.print_string ")";
+  Format.close_box ();

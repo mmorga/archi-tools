@@ -1,11 +1,11 @@
 (* Include resources/svg_template.svg.mustache *)
 let svg = 
   "\
-  <?xml version=\"1.0\" standalone=\"no\"?>\n\
+  <?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>\n\
   <!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">\n\
-  <svg version=\"1.1\"\n\
-  \     xmlns=\"http://www.w3.org/2000/svg\"\n\
+  <svg xmlns=\"http://www.w3.org/2000/svg\"\n\
   \     xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n\
+  \     version=\"1.1\"\n\
   \     width=\"{{ width }}\"\n\
   \     height=\"{{ height }}\"\n\
   \     viewBox=\"{{ min_x }} {{ min_y }} {{ width }} {{ height }}\">\n\

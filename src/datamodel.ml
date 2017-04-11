@@ -24,6 +24,9 @@ let bounds_left b =
   | Some x -> x
   | None -> 0.0
 
+let bounds_right b =
+  (bounds_left b) +. b.width
+
 let bounds_top b =
   match b.y with
   | Some y -> y
@@ -341,7 +344,8 @@ type child_ref =
     ElementRef of element |
     DiagramModelRef of diagram |
     GroupRef |
-    NoteRef
+    NoteRef |
+    SketchModelStickyRef
 
 type element_name_type = {
   id : string;
@@ -354,11 +358,11 @@ let effective_child_element (c : child) m =
   let expected_id opt_id =
     match opt_id with
     | Some id -> id
-    | None -> invalid_arg "Expected an id attribute for Child type"
+    | None -> print_child c; invalid_arg "Expected an id attribute for Child type"
   in
   match c.node.el_type with
   | DiagramObject ->
-    let archimate_element_id = print_child c; expected_id c.node.archimate_element in
+    let archimate_element_id = expected_id c.node.archimate_element in
     let element = List.find (fun (e : element) -> archimate_element_id = e.id) m.node.elements in
     {
       id = archimate_element_id;
@@ -389,7 +393,14 @@ let effective_child_element (c : child) m =
       name = c.node.name;
       entity = NoteRef;
     }
-  | _ -> invalid_arg "Unexpected element type for child"
+  | SketchModelSticky ->
+    {
+      id = c.id;
+      el_type = SketchModelSticky;
+      name = c.node.name;
+      entity = SketchModelStickyRef;
+    }
+  | _ -> invalid_arg ("Unexpected element type `" ^ (string_of_element_type c.node.el_type) ^ "` for child")
 
 let is_bendpoint a =
   match a with

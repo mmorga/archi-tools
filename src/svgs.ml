@@ -1,6 +1,7 @@
 open Format
 open Datamodel
 open Tyxml
+open Tyxml.Svg
 
 type node_content_type = (Svg_types.g_content Svg.elt) Svg.list_wrap
 
@@ -11,19 +12,23 @@ type diagram_node_type = {
   badge : string option;
 }
 
+let style_px_of_float f =
+  let fr, iv = modf f in
+  match fr with
+  | 0. -> Format.sprintf "%dpx;" (int_of_float iv)
+  | _ -> Format.sprintf "%0.2fpx;" f
+
+(* def entity_shape(xml, bounds) application_component, artifact, data_entity, device, event_entity, group, interface_entity, junction, meaning, motivation_entity, node, note, process_entity, product, rect_entity, representation, rounded_rect_entity, service_entity, value *)
+(* def initialize TechnologyCollaboration, SystemSoftware, Stakeholder, Sticky, ServiceEntity, RoundedRect, Resource, Requirement, Rect, Process, Principle, Plateau, Path, Outcome, OrJunction, Note, Node, Network, Motivation, Junction, Interface, Interaction, *)
 (* def calc_text_bounds DataEntity, EventEntity, ProcessEntity, Value, see: set_text_bounds *)
 (* def device_path(xml, bounds) Device *)
 (* def elipse_path(xml, bounds) InterfaceEntity *)
-(* def entity_shape(xml, bounds) application_component, artifact, data_entity, device, event_entity, group, interface_entity, junction, meaning, motivation_entity, node, note, process_entity, product, rect_entity, representation, rounded_rect_entity, service_entity, value *)
-(* def initialize TechnologyCollaboration, SystemSoftware, Stakeholder, Sticky, ServiceEntity, RoundedRect, Resource, Requirement, Rect, Process, Principle, Plateau, Path, Outcome, OrJunction, Note, Node, Network, Motivation, Junction, Interface, Interaction, *)
 (* def meaning_path(xml, bounds) Meaning *)
 (* def node_path(xml, bounds) Node *)
 (* def process_path(xml, bounds) ProcessEntity *)
 (* def product_path(xml, bounds) Product *)
-(* def rect_path(xml, bounds) Rect*)
 (* def representation_path(xml, bounds) - Representation *)
 (* def service_path(xml, bounds) - ServiceEntity *)
-(* def set_text_bounds(bounds, main_box_x) - ApplicationComponent only *)
 
 let add_unless_none l kv =
   let k, v = kv in
@@ -103,7 +108,6 @@ let text_style s =
 
 (* produces SVG attributes list for a Datamodel.bounds *)
 let bounds_attrs b =
-  (* let f (a : Svg_types.coord -> [> `X ] Tyxml_svg.attrib) (b : float option) l = *)
   let f (a : Svg_types.coord -> [> `X ] Tyxml_svg.attrib) b l =
     match b with
     | Some fval -> (a (fval, None)) :: l
@@ -119,7 +123,7 @@ let bounds_attrs b =
 let entity_badge badge badge_bounds (l : node_content_type) : node_content_type =
   match badge with
   | Some b ->
-    let badge_use = (Svg.use ~a:(List.append (bounds_attrs badge_bounds) [Svg.a_xlink_href b]) []) in
+    let badge_use = (Svg.use ~a:(List.append (bounds_attrs badge_bounds) [Svg.a_xlink_href ("#" ^ b)]) []) in
     badge_use :: l
   | None -> l
 
@@ -138,7 +142,7 @@ let element_trimmed_name (e : element option) : string option =
     )
   | None -> None
 
-let entity_label (c : child) (e : element_name_type) text_bounds l : node_content_type =
+let entity_label ?(align = "center") (c : child) (e : element_name_type) text_bounds badge l : node_content_type =
   let text_lines text =
     Str.global_replace (Str.regexp "\\r\\n") "\n" text |> Str.split (Str.regexp "[\r\n]")
   in
@@ -147,32 +151,31 @@ let entity_label (c : child) (e : element_name_type) text_bounds l : node_conten
     | Some n -> n
     | None -> c.id
   in
-  let style_px_of_float f =
-    let fr, iv = modf f in
-    match fr with
-    | 0. -> Format.sprintf "%dpx;" (int_of_float iv)
-    | _ -> Format.sprintf "%0.2fpx;" f
+  let optional_spacer bo l =
+    match bo with
+    | Some b -> (
+        Html.div ~a:[Html.a_class ["archimate-badge-spacer"]] [];
+      ) :: l
+    | None -> l
   in
+  let label_style = ((text_style c.node.style) ^ "text-align:" ^ align ^ ";") in
   (
     Svg.foreignObject ~a:(bounds_attrs text_bounds) [
       Html.toelt (
         Html.table ~a:[
           Html.a_xmlns `W3_org_1999_xhtml;
-          (* ["http://www.w3.org/1999/xhtml"]; *)
           Html.a_style (
             "height:" ^ (style_px_of_float text_bounds.height) ^ "width:" ^ (style_px_of_float text_bounds.width)
           );
         ] [
           Html.tr ~a:[Html.a_style ("height:" ^ (style_px_of_float text_bounds.height))] [
-            Html.td ~a:[Html.a_class ["entity-name"]] [
-              Html.div ~a:[
-                Html.a_class ["archimate-badge-spacer"](* TODO: unless badge.nil? *)
-              ] [
-                Html.p ~a:[Html.a_class ["entity-name"]; Html.a_style (text_style c.node.style)] (
+            Html.td ~a:[Html.a_class ["entity-name"]] (
+              optional_spacer badge [
+                Html.p ~a:[Html.a_class ["entity-name"]; Html.a_style label_style] (
                   List.map (fun line -> Html.pcdata line) (text_lines name) (* TODO: add Html5.br *)
-                )
+                );
               ]
-            ]
+            )
           ]
         ]
       )
@@ -192,12 +195,19 @@ let f_or_zero (f : float option) : float =
 let translate_bounds (b : bounds) =
     Svg.a_transform [`Translate ((f_or_zero b.x), b.y)]
 
+let rect_badge_bounds b =
+  {
+    x = Some ((bounds_right b) -. 25.);
+    y = Some ((bounds_top b) +. 5.);
+    width = 20.;
+    height = 20.;
+  }
+
 let rect_shape (c : child) (e : element_name_type) (dnt : diagram_node_type) (bounds_offset : bounds option) =
-  let badge_bounds = c.node.bounds in
   let text_bounds = bounds_reduce_by c.node.bounds 2.0 in
   List.rev (
-    entity_label c e text_bounds (
-      entity_badge dnt.badge badge_bounds [
+    entity_label c e text_bounds dnt.badge (
+      entity_badge dnt.badge (rect_badge_bounds c.node.bounds) [
         Svg.rect ~a:[
           Svg.a_x ((bounds_left c.node.bounds), None);
           Svg.a_y ((bounds_top c.node.bounds), None);
@@ -208,6 +218,48 @@ let rect_shape (c : child) (e : element_name_type) (dnt : diagram_node_type) (bo
         ] [];
       ]
     )
+  )
+
+let rect_helper x y w h cls sty =
+  Svg.rect ~a:[
+    Svg.a_x (x, None);
+    Svg.a_y (y, None);
+    Svg.a_width (w, None);
+    Svg.a_height (h, None);
+    Svg.a_class [cls];
+    Svg.a_style sty;
+  ] []
+
+let group_shape (c : child) (e : element_name_type) (dnt : diagram_node_type) (bounds_offset : bounds option) =
+  let group_header_height = 21. in
+  let bounds = c.node.bounds in
+  let text_bounds = { bounds with height = group_header_height; } in
+  List.rev (
+    entity_label ~align:"left" c e text_bounds dnt.badge [
+      Svg.rect ~a:[
+        Svg.a_x ((bounds_left bounds), None);
+        Svg.a_y ((bounds_top bounds), None);
+        Svg.a_width ((bounds.width /. 2.), None);
+        Svg.a_height ((group_header_height), None);
+        Svg.a_class ["archimate-decoration"];
+      ] [];
+      Svg.rect ~a:[
+        Svg.a_x (bounds_left bounds, None);
+        Svg.a_y ((bounds_top bounds), None);
+        Svg.a_width (bounds.width /. 2., None);
+        Svg.a_height (group_header_height, None);
+        Svg.a_class [dnt.background_class];
+        Svg.a_style (shape_style c.node.style);
+      ] [];
+      Svg.rect ~a:[
+        Svg.a_x (bounds_left bounds, None);
+        Svg.a_y ((bounds_top bounds) +. group_header_height, None);
+        Svg.a_width (bounds.width, None);
+        Svg.a_height (bounds.height -. group_header_height, None);
+        Svg.a_class [dnt.background_class];
+        Svg.a_style (shape_style c.node.style);
+      ] [];
+    ]
   )
 
 let junction_shape c e dnt bounds_offset =
@@ -222,42 +274,47 @@ let component_shape c e dnt bounds_offset =
         Svg.a_y (top, None);
         Svg.a_width (21.0, None);
         Svg.a_height (13.0, None);
-        Svg.a_class [dnt.background_class];
-        Svg.a_style s_style
+        Svg.a_class ["archimate-decoration"]
       ] [];
       Svg.rect ~a:[
         Svg.a_x (left, None);
         Svg.a_y (top, None);
         Svg.a_width (21.0, None);
         Svg.a_height (13.0, None);
-        Svg.a_class ["archimate-decoration"]
+        Svg.a_class [dnt.background_class];
+        Svg.a_style s_style
       ] [];
     ]
   in
   let main_box_x = bounds_left c.node.bounds +. 21.0 /. 2.0 in
   let main_box_width = c.node.bounds.width -. 21.0 /. 2.0 in
-  (* let text_bounds = { *)
-  (*     x = Some (main_box_x +. 21.0 /. 2.0); *)
-  (*     y = Some ((bounds_top c.node.bounds) +. 1.0); *)
-  (*     width = c.node.bounds.width -. 22.0; *)
-  (*     height = c.node.bounds.height -. 2.0 *)
-  (*   } *)
-  (* in *)
-  List.concat [
-    [
-      Svg.rect ~a:[
-        Svg.a_x (main_box_x, None);
-        Svg.a_y (bounds_top c.node.bounds, None);
-        Svg.a_width (main_box_width, None);
-        Svg.a_height (c.node.bounds.height, None);
-        Svg.a_class [dnt.background_class];
-        Svg.a_style s_style
-      ] []
-    ];
-    component_decoration (bounds_left c.node.bounds) ((bounds_top c.node.bounds) +. 10.0);
-    component_decoration (bounds_left c.node.bounds) ((bounds_top c.node.bounds) +. 30.0);
-
-  ]
+  let text_bounds = {
+      x = Some (main_box_x +. 21.0 /. 2.0);
+      y = Some ((bounds_top c.node.bounds) +. 1.0);
+      width = c.node.bounds.width -. 22.0;
+      height = c.node.bounds.height -. 2.0
+    }
+  in
+  List.rev (
+    entity_label c e text_bounds dnt.badge (
+      entity_badge dnt.badge (rect_badge_bounds c.node.bounds) (
+        List.concat [
+          component_decoration (bounds_left c.node.bounds) ((bounds_top c.node.bounds) +. 10.0);
+          component_decoration (bounds_left c.node.bounds) ((bounds_top c.node.bounds) +. 30.0);
+          [
+            Svg.rect ~a:[
+              Svg.a_x (main_box_x, None);
+              Svg.a_y (bounds_top c.node.bounds, None);
+              Svg.a_width (main_box_width, None);
+              Svg.a_height (c.node.bounds.height, None);
+              Svg.a_class [dnt.background_class];
+              Svg.a_style s_style
+            ] []
+          ];
+        ]
+      )
+    )
+  )
 
 let child_diagram_node_type c e =
   let layer_background_class l =
@@ -277,6 +334,7 @@ let child_diagram_node_type c e =
     | GroupRef -> "archimate-group-background"
     | NoteRef -> "archimate-note-background"
     | DiagramModelRef _ -> "archimate-diagram-model-background"
+    | SketchModelStickyRef -> "archimate-sketch-model-sticky-background"
   in
   let default_diagram_node_type = {
       entity_shape = rect_shape;
@@ -289,51 +347,51 @@ let child_diagram_node_type c e =
   | AndJunction -> { default_diagram_node_type with g_class = "archimate-and-junction"; background_class = "archimate-junction-background"; }
   | Junction -> { default_diagram_node_type with g_class = "archimate-junction"; entity_shape = junction_shape; background_class = "archimate-junction-background"; }
   | OrJunction -> { default_diagram_node_type with g_class = "archimate-or-junction"; entity_shape = rect_shape; background_class = "archimate-or-junction-background"; }
-  | BusinessActor -> { default_diagram_node_type with g_class = "archimate-business-actor"; }
-  | BusinessCollaboration -> { default_diagram_node_type with g_class = "archimate-business-collaboration"; }
+  | BusinessActor -> { default_diagram_node_type with g_class = "archimate-business-actor"; badge = Some "archimate-actor-badge"; }
+  | BusinessCollaboration -> { default_diagram_node_type with g_class = "archimate-business-collaboration"; badge = Some "archimate-collaboration-badge"; }
   | BusinessEvent -> { default_diagram_node_type with g_class = "archimate-business-event"; }
-  | BusinessFunction  -> { default_diagram_node_type with g_class = "archimate-business-function"; }
-  | BusinessInteraction -> { default_diagram_node_type with g_class = "archimate-business-interaction"; }
-  | BusinessInterface -> { default_diagram_node_type with g_class = "archimate-business-interface"; }
+  | BusinessFunction  -> { default_diagram_node_type with g_class = "archimate-business-function"; badge = Some "archimate-function-badge"; }
+  | BusinessInteraction -> { default_diagram_node_type with g_class = "archimate-business-interaction"; badge = Some "archimate-interaction-badge"; }
+  | BusinessInterface -> { default_diagram_node_type with g_class = "archimate-business-interface"; badge = Some "archimate-interface-badge"; }
   | BusinessObject -> { default_diagram_node_type with g_class = "archimate-business-object"; }
-  | BusinessProcess -> { default_diagram_node_type with g_class = "archimate-business-process"; }
-  | BusinessRole -> { default_diagram_node_type with g_class = "archimate-business-role"; }
-  | BusinessService -> { default_diagram_node_type with g_class = "archimate-business-service"; }
+  | BusinessProcess -> { default_diagram_node_type with g_class = "archimate-business-process"; badge = Some "archimate-process-badge"; }
+  | BusinessRole -> { default_diagram_node_type with g_class = "archimate-business-role"; badge = Some "archimate-role-badge"; }
+  | BusinessService -> { default_diagram_node_type with g_class = "archimate-business-service"; badge = Some "archimate-service-badge"; }
   | Contract -> { default_diagram_node_type with g_class = "archimate-contract"; }
   | Meaning -> { default_diagram_node_type with g_class = "archimate-meaning"; }
   | Product -> { default_diagram_node_type with g_class = "archimate-product"; }
   | Representation -> { default_diagram_node_type with g_class = "archimate-representation"; }
   | Value -> { default_diagram_node_type with g_class = "archimate-value"; }
-  | ApplicationCollaboration -> { default_diagram_node_type with g_class = "archimate-application-collaboration"; }
-  | ApplicationComponent -> { default_diagram_node_type with g_class = "archimate-application-component"; }
-  | ApplicationFunction -> { default_diagram_node_type with g_class = "archimate-application-function"; }
-  | ApplicationInteraction -> { default_diagram_node_type with g_class = "archimate-application-interaction"; }
-  | ApplicationInterface -> { default_diagram_node_type with g_class = "archimate-application-interface"; }
-  | ApplicationService -> { default_diagram_node_type with g_class = "archimate-application-service"; }
+  | ApplicationCollaboration -> { default_diagram_node_type with g_class = "archimate-application-collaboration"; badge = Some "archimate-collaboration-badge"; }
+  | ApplicationComponent -> { default_diagram_node_type with g_class = "archimate-application-component"; entity_shape = component_shape; }
+  | ApplicationFunction -> { default_diagram_node_type with g_class = "archimate-application-function"; badge = Some "archimate-function-badge"; }
+  | ApplicationInteraction -> { default_diagram_node_type with g_class = "archimate-application-interaction"; badge = Some "archimate-interaction-badge"; }
+  | ApplicationInterface -> { default_diagram_node_type with g_class = "archimate-application-interface"; badge = Some "archimate-interface-badge"; }
+  | ApplicationService -> { default_diagram_node_type with g_class = "archimate-application-service"; badge = Some "archimate-service-badge"; }
   | DataObject -> { default_diagram_node_type with g_class = "archimate-data-object"; }
   | Artifact -> { default_diagram_node_type with g_class = "archimate-artifact"; }
-  | CommunicationPath -> { default_diagram_node_type with g_class = "archimate-communication-path"; }
-  | Device -> { default_diagram_node_type with g_class = "archimate-device"; }
-  | InfrastructureFunction -> { default_diagram_node_type with g_class = "archimate-infrastructure-function"; }
-  | InfrastructureInterface -> { default_diagram_node_type with g_class = "archimate-infrastructure-interface"; }
-  | InfrastructureService -> { default_diagram_node_type with g_class = "archimate-infrastructure-service"; }
-  | Network -> { default_diagram_node_type with g_class = "archimate-network"; }
-  | Node -> { default_diagram_node_type with g_class = "archimate-node"; }
-  | SystemSoftware -> { default_diagram_node_type with g_class = "archimate-system-software"; }
-  | Assessment -> { default_diagram_node_type with g_class = "archimate-assessment"; }
-  | Constraint -> { default_diagram_node_type with g_class = "archimate-constraint"; }
-  | Driver -> { default_diagram_node_type with g_class = "archimate-driver"; }
-  | Goal -> { default_diagram_node_type with g_class = "archimate-goal"; }
-  | Principle -> { default_diagram_node_type with g_class = "archimate-principle"; }
-  | Requirement -> { default_diagram_node_type with g_class = "archimate-requirement"; }
+  | CommunicationPath -> { default_diagram_node_type with g_class = "archimate-communication-path"; badge = Some "archimate-communication-badge"; }
+  | Device -> { default_diagram_node_type with g_class = "archimate-device"; badge = Some "archimate-device-badge"; }
+  | InfrastructureFunction -> { default_diagram_node_type with g_class = "archimate-infrastructure-function"; badge = Some "archimate-function-badge"; }
+  | InfrastructureInterface -> { default_diagram_node_type with g_class = "archimate-infrastructure-interface"; badge = Some "archimate-interface-badge"; }
+  | InfrastructureService -> { default_diagram_node_type with g_class = "archimate-infrastructure-service"; badge = Some "archimate-service-badge"; }
+  | Network -> { default_diagram_node_type with g_class = "archimate-network"; badge = Some "archimate-network-badge"; }
+  | Node -> { default_diagram_node_type with g_class = "archimate-node"; badge = Some "archimate-node-badge"; }
+  | SystemSoftware -> { default_diagram_node_type with g_class = "archimate-system-software"; badge = Some "archimate-system-software-badge"; }
+  | Assessment -> { default_diagram_node_type with g_class = "archimate-assessment"; badge = Some "archimate-assessment-badge"; }
+  | Constraint -> { default_diagram_node_type with g_class = "archimate-constraint"; badge = Some "archimate-constraint-badge"; }
+  | Driver -> { default_diagram_node_type with g_class = "archimate-driver"; badge = Some "archimate-driver-badge"; }
+  | Goal -> { default_diagram_node_type with g_class = "archimate-goal"; badge = Some "archimate-goal-badge"; }
+  | Principle -> { default_diagram_node_type with g_class = "archimate-principle"; badge = Some "archimate-principle-badge"; }
+  | Requirement -> { default_diagram_node_type with g_class = "archimate-requirement"; badge = Some "archimate-requirement-badge"; }
   | Stakeholder -> { default_diagram_node_type with g_class = "archimate-stakeholder"; }
   | Deliverable -> { default_diagram_node_type with g_class = "archimate-deliverable"; }
-  | Gap -> { default_diagram_node_type with g_class = "archimate-gap"; }
-  | Location -> { default_diagram_node_type with g_class = "archimate-location"; }
-  | Plateau -> { default_diagram_node_type with g_class = "archimate-plateau"; }
+  | Gap -> { default_diagram_node_type with g_class = "archimate-gap"; badge = Some "archimate-gap-badge"; }
+  | Location -> { default_diagram_node_type with g_class = "archimate-location"; badge = Some "archimate-location-badge"; }
+  | Plateau -> { default_diagram_node_type with g_class = "archimate-plateau"; badge = Some "archimate-plateau-badge"; }
   | WorkPackage -> { default_diagram_node_type with g_class = "archimate-work-package"; }
-  | DiagramModelReference -> { default_diagram_node_type with g_class = "archimate-diagram-model-reference"; }
-  | Group -> { default_diagram_node_type with g_class = "archimate-group"; }
+  | DiagramModelReference -> { default_diagram_node_type with g_class = "archimate-diagram-model-reference"; badge = Some "archimate-diagram-model-reference-badge"; }
+  | Group -> { default_diagram_node_type with g_class = "archimate-group"; entity_shape = group_shape; }
   | DiagramObject -> { default_diagram_node_type with g_class = "archimate-diagram-object"; }
   | Note -> { default_diagram_node_type with g_class = "archimate-note"; }
   | SketchModelSticky -> { default_diagram_node_type with g_class = "archimate-sketch-model-sticky"; }

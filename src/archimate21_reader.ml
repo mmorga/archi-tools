@@ -78,7 +78,7 @@ let make_element (el_type : element_type) layer attribute_map childs =
     node = {
       el_type = el_type;
       layer = layer;
-      name = fetch_optional "label" attribute_map;
+      name = fetch_optional "name" attribute_map;
     };
   }
 

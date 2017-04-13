@@ -2,33 +2,29 @@ open Format
 open Datamodel
 open Tyxml
 open Tyxml.Svg
+open Svg_helpers.Path
 
-type node_content_type = (Svg_types.g_content Svg.elt) Svg.list_wrap
+type node_content_type = (Svg_types.g_content elt) list_wrap
 
 type diagram_node_type = {
-  entity_shape : child -> element_name_type -> diagram_node_type -> bounds option -> (Svg_types.g_content Svg.elt) Svg.list_wrap;
+  entity_shape : child -> element_name_type -> diagram_node_type -> (Svg_types.g_content elt) list_wrap;
   g_class : string;
   background_class : string;
   badge : string option;
 }
 
-let style_px_of_float f =
-  let fr, iv = modf f in
+let vs v =
+  let fr, iv = modf v in
   match fr with
-  | 0. -> Format.sprintf "%dpx;" (int_of_float iv)
-  | _ -> Format.sprintf "%0.2fpx;" f
+  | 0. -> asprintf "%d" (int_of_float iv)
+  | _ -> asprintf "%f" v
 
-(* def entity_shape(xml, bounds) application_component, artifact, data_entity, device, event_entity, group, interface_entity, junction, meaning, motivation_entity, node, note, process_entity, product, rect_entity, representation, rounded_rect_entity, service_entity, value *)
+let style_px_of_float f =
+  asprintf "%spx;" (vs f)
+
+(* def entity_shape(xml, bounds) artifact, data_entity, device, event_entity, group, interface_entity, junction, meaning, motivation_entity, node, note, process_entity, product, rect_entity, representation, rounded_rect_entity, service_entity, value *)
 (* def initialize TechnologyCollaboration, SystemSoftware, Stakeholder, Sticky, ServiceEntity, RoundedRect, Resource, Requirement, Rect, Process, Principle, Plateau, Path, Outcome, OrJunction, Note, Node, Network, Motivation, Junction, Interface, Interaction, *)
 (* def calc_text_bounds DataEntity, EventEntity, ProcessEntity, Value, see: set_text_bounds *)
-(* def device_path(xml, bounds) Device *)
-(* def elipse_path(xml, bounds) InterfaceEntity *)
-(* def meaning_path(xml, bounds) Meaning *)
-(* def node_path(xml, bounds) Node *)
-(* def process_path(xml, bounds) ProcessEntity *)
-(* def product_path(xml, bounds) Product *)
-(* def representation_path(xml, bounds) - Representation *)
-(* def service_path(xml, bounds) - ServiceEntity *)
 
 let add_unless_none l kv =
   let k, v = kv in
@@ -75,11 +71,13 @@ let shape_style s =
   | None -> ""
 
 let text_style s =
-  (* TODO: Add a default text_align *)
+  (* TODO: Add a default text_align? *)
   let text_align s =
     match s.text_alignment with
-    | Some ta -> Some (string_of_int ta)
-    | None -> None
+    | Some 1 -> Some "left"
+    | Some 2 -> Some "center"
+    | Some 3 -> Some "right"
+    | _ -> None
   in
   let font_size s =
     match s.font with
@@ -114,42 +112,22 @@ let bounds_attrs b =
     | None -> l
   in
   let wh_list = [
-      Svg.a_width (b.width, None);
-      Svg.a_height (b.height, None)
+      a_width (b.width, None);
+      a_height (b.height, None)
     ]
   in
-  f (Svg.a_x) b.x (f Svg.a_y b.y wh_list)
+  f (a_x) b.x (f a_y b.y wh_list)
 
 let entity_badge badge badge_bounds (l : node_content_type) : node_content_type =
   match badge with
   | Some b ->
-    let badge_use = (Svg.use ~a:(List.append (bounds_attrs badge_bounds) [Svg.a_xlink_href ("#" ^ b)]) []) in
+    let badge_use = (use ~a:(List.append (bounds_attrs badge_bounds) [a_xlink_href ("#" ^ b)]) []) in
     badge_use :: l
   | None -> l
 
-(* TODO use this in entity_label below *)
-let element_trimmed_name (e : element option) : string option =
-  match e with
-  | Some el -> (
-      match el.node.name with
-      | Some name -> (
-          let trimmed_name = String.trim name in
-          match trimmed_name with
-          | "" -> None
-          | _ -> Some trimmed_name
-        )
-      | None -> None
-    )
-  | None -> None
-
-let entity_label ?(align = "center") (c : child) (e : element_name_type) text_bounds badge l : node_content_type =
+let entity_label text_content text_bounds cstyle badge l : node_content_type =
   let text_lines text =
     Str.global_replace (Str.regexp "\\r\\n") "\n" text |> Str.split (Str.regexp "[\r\n]")
-  in
-  let name =
-    match e.name with
-    | Some n -> n
-    | None -> c.id
   in
   let optional_spacer bo l =
     match bo with
@@ -158,29 +136,41 @@ let entity_label ?(align = "center") (c : child) (e : element_name_type) text_bo
       ) :: l
     | None -> l
   in
-  let label_style = ((text_style c.node.style) ^ "text-align:" ^ align ^ ";") in
-  (
-    Svg.foreignObject ~a:(bounds_attrs text_bounds) [
-      Html.toelt (
-        Html.table ~a:[
-          Html.a_xmlns `W3_org_1999_xhtml;
-          Html.a_style (
-            "height:" ^ (style_px_of_float text_bounds.height) ^ "width:" ^ (style_px_of_float text_bounds.width)
-          );
-        ] [
-          Html.tr ~a:[Html.a_style ("height:" ^ (style_px_of_float text_bounds.height))] [
-            Html.td ~a:[Html.a_class ["entity-name"]] (
-              optional_spacer badge [
-                Html.p ~a:[Html.a_class ["entity-name"]; Html.a_style label_style] (
-                  List.map (fun line -> Html.pcdata line) (text_lines name) (* TODO: add Html5.br *)
-                );
-              ]
-            )
-          ]
-        ]
+  let name_trimmed : string option =
+    match text_content with
+    | Some t -> (
+        let tn = String.trim t in
+        match (String.length tn) with
+        | 0 -> None
+        | _ -> Some tn
       )
-    ]
-  ) :: l
+    | None -> None
+  in
+  let label_style = text_style cstyle in
+  match name_trimmed with
+  | Some name -> (
+      foreignObject ~a:(bounds_attrs text_bounds) [
+        Html.toelt (
+          Html.table ~a:[
+            Html.a_xmlns `W3_org_1999_xhtml;
+            Html.a_style (
+              "height:" ^ (style_px_of_float text_bounds.height) ^ "width:" ^ (style_px_of_float text_bounds.width)
+            );
+          ] [
+            Html.tr ~a:[Html.a_style ("height:" ^ (style_px_of_float text_bounds.height))] [
+              Html.td ~a:[Html.a_class ["entity-name"]] (
+                optional_spacer badge [
+                  Html.p ~a:[Html.a_class ["entity-name"]; Html.a_style label_style] (
+                    List.map (fun line -> Html.pcdata line) (text_lines name) (* TODO: add Html5.br *)
+                  );
+                ]
+              )
+            ]
+          ]
+        )
+      ]
+    ) :: l
+  | None -> l
 
 let conditional_add f_cont f_cond x l =
   match (f_cond x) with
@@ -193,7 +183,7 @@ let f_or_zero (f : float option) : float =
   | None -> 0.0
 
 let translate_bounds (b : bounds) =
-    Svg.a_transform [`Translate ((f_or_zero b.x), b.y)]
+    a_transform [`Translate ((f_or_zero b.x), b.y)]
 
 let rect_badge_bounds b =
   {
@@ -203,118 +193,565 @@ let rect_badge_bounds b =
     height = 20.;
   }
 
-let rect_shape (c : child) (e : element_name_type) (dnt : diagram_node_type) (bounds_offset : bounds option) =
-  let text_bounds = bounds_reduce_by c.node.bounds 2.0 in
+let rect_helper ?(cls=[]) ?(sty="") ?(attrs=[]) b =
+  rect ~a:(
+    List.concat [
+      [
+        a_x ((bounds_left b), None);
+        a_y ((bounds_top b), None);
+        a_width (b.width, None);
+        a_height (b.height, None);
+        a_class cls;
+        a_style sty;
+      ]; attrs;]
+  ) []
+
+
+let default_text_bounds b =
+  bounds_reduce_by b 2.0
+
+let draw_child t tb sty b bb l =
   List.rev (
-    entity_label c e text_bounds dnt.badge (
-      entity_badge dnt.badge (rect_badge_bounds c.node.bounds) [
-        Svg.rect ~a:[
-          Svg.a_x ((bounds_left c.node.bounds), None);
-          Svg.a_y ((bounds_top c.node.bounds), None);
-          Svg.a_width (c.node.bounds.width, None);
-          Svg.a_height (c.node.bounds.height, None);
-          Svg.a_class [dnt.background_class];
-          Svg.a_style (shape_style c.node.style);
-        ] [];
-      ]
+    entity_label t tb sty b (
+      entity_badge b bb l
     )
   )
 
-let rect_helper x y w h cls sty =
-  Svg.rect ~a:[
-    Svg.a_x (x, None);
-    Svg.a_y (y, None);
-    Svg.a_width (w, None);
-    Svg.a_height (h, None);
-    Svg.a_class [cls];
-    Svg.a_style sty;
-  ] []
+let rect_shape (c : child) (e : element_name_type) (dnt : diagram_node_type) =
+  let text_bounds = default_text_bounds c.node.bounds in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    rect_helper ~cls:[dnt.background_class] ~sty:(shape_style c.node.style) c.node.bounds;
+  ]
 
-let group_shape (c : child) (e : element_name_type) (dnt : diagram_node_type) (bounds_offset : bounds option) =
+let rounded_rect_shape (c : child) (e : element_name_type) (dnt : diagram_node_type) =
+  let badge_bounds = {
+    x = Some ((bounds_right c.node.bounds) -. 25.);
+    y = Some ((bounds_top c.node.bounds) +. 5.);
+    width = 20.;
+    height = 20.;
+  }
+  in
+  let text_bounds = default_text_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    rect_helper ~cls:[dnt.background_class] ~sty:(shape_style c.node.style) ~attrs:[
+      a_rx (5., None);
+      a_ry (5., None);
+    ] c.node.bounds;
+  ]
+
+let group_shape (c : child) (e : element_name_type) (dnt : diagram_node_type) =
   let group_header_height = 21. in
   let bounds = c.node.bounds in
   let text_bounds = { bounds with height = group_header_height; } in
-  List.rev (
-    entity_label ~align:"left" c e text_bounds dnt.badge [
-      Svg.rect ~a:[
-        Svg.a_x ((bounds_left bounds), None);
-        Svg.a_y ((bounds_top bounds), None);
-        Svg.a_width ((bounds.width /. 2.), None);
-        Svg.a_height ((group_header_height), None);
-        Svg.a_class ["archimate-decoration"];
-      ] [];
-      Svg.rect ~a:[
-        Svg.a_x (bounds_left bounds, None);
-        Svg.a_y ((bounds_top bounds), None);
-        Svg.a_width (bounds.width /. 2., None);
-        Svg.a_height (group_header_height, None);
-        Svg.a_class [dnt.background_class];
-        Svg.a_style (shape_style c.node.style);
-      ] [];
-      Svg.rect ~a:[
-        Svg.a_x (bounds_left bounds, None);
-        Svg.a_y ((bounds_top bounds) +. group_header_height, None);
-        Svg.a_width (bounds.width, None);
-        Svg.a_height (bounds.height -. group_header_height, None);
-        Svg.a_class [dnt.background_class];
-        Svg.a_style (shape_style c.node.style);
-      ] [];
-    ]
-  )
+  let group_header_bounds = {
+    bounds with
+    width = bounds.width /. 2.;
+    height = group_header_height;
+  }
+  in
+  let group_body_bounds = {
+    bounds with
+    y = Some ((bounds_top bounds) +. group_header_height);
+    height = bounds.height -. group_header_height;
+  }
+  in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  let group_style =
+    let effective_style =
+      match c.node.style with
+      | Some sty -> sty
+      | None -> { text_alignment = None; fill_color = None; line_color = None;
+                  font_color = None; line_width = None; font = None; }
+    in
+    Some { effective_style with text_alignment = Some 1; }
+  in
+  draw_child e.name text_bounds group_style dnt.badge badge_bounds [
+    rect_helper ~cls:["archimate-decoration"] group_header_bounds;
+    rect_helper ~cls:[dnt.background_class] ~sty:(shape_style c.node.style) group_header_bounds;
+    rect_helper ~cls:[dnt.background_class] ~sty:(shape_style c.node.style) group_body_bounds;
+  ]
 
-let junction_shape c e dnt bounds_offset =
-  rect_shape c e dnt bounds_offset
+let junction_shape c e dnt =
+  let text_bounds = default_text_bounds c.node.bounds in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    circle ~a:[
+      a_cx (((bounds_left c.node.bounds) +. c.node.bounds.width /. 2.), None);
+      a_cy (((bounds_top c.node.bounds) +. c.node.bounds.height /. 2.), None);
+      a_r ((c.node.bounds.width /. 2.), None);
+      a_class [dnt.background_class];
+      a_style (shape_style c.node.style);
+    ] []
+  ]
 
-let component_shape c e dnt bounds_offset =
+let component_shape c e dnt =
   let s_style = shape_style c.node.style in
   let component_decoration left top =
+    let decor_bounds = { x = Some left; y = Some top; width = 21.; height = 13.; } in
     [
-      Svg.rect ~a:[
-        Svg.a_x (left, None);
-        Svg.a_y (top, None);
-        Svg.a_width (21.0, None);
-        Svg.a_height (13.0, None);
-        Svg.a_class ["archimate-decoration"]
-      ] [];
-      Svg.rect ~a:[
-        Svg.a_x (left, None);
-        Svg.a_y (top, None);
-        Svg.a_width (21.0, None);
-        Svg.a_height (13.0, None);
-        Svg.a_class [dnt.background_class];
-        Svg.a_style s_style
-      ] [];
+      rect_helper ~cls:["archimate-decoration"] decor_bounds;
+      rect_helper ~cls:[dnt.background_class] ~sty:s_style decor_bounds;
     ]
   in
-  let main_box_x = bounds_left c.node.bounds +. 21.0 /. 2.0 in
-  let main_box_width = c.node.bounds.width -. 21.0 /. 2.0 in
+  let half_decor_width = 21. /. 2. in
+  let main_box_x = bounds_left c.node.bounds +. half_decor_width in
+  let component_bounds = {
+    c.node.bounds with
+    x = Some main_box_x;
+    width = c.node.bounds.width -. half_decor_width;
+  }
+  in
   let text_bounds = {
-      x = Some (main_box_x +. 21.0 /. 2.0);
+      x = Some (main_box_x +. half_decor_width);
       y = Some ((bounds_top c.node.bounds) +. 1.0);
       width = c.node.bounds.width -. 22.0;
       height = c.node.bounds.height -. 2.0
     }
   in
-  List.rev (
-    entity_label c e text_bounds dnt.badge (
-      entity_badge dnt.badge (rect_badge_bounds c.node.bounds) (
-        List.concat [
-          component_decoration (bounds_left c.node.bounds) ((bounds_top c.node.bounds) +. 10.0);
-          component_decoration (bounds_left c.node.bounds) ((bounds_top c.node.bounds) +. 30.0);
-          [
-            Svg.rect ~a:[
-              Svg.a_x (main_box_x, None);
-              Svg.a_y (bounds_top c.node.bounds, None);
-              Svg.a_width (main_box_width, None);
-              Svg.a_height (c.node.bounds.height, None);
-              Svg.a_class [dnt.background_class];
-              Svg.a_style s_style
-            ] []
-          ];
-        ]
-      )
-    )
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds (
+    List.concat [
+      component_decoration (bounds_left c.node.bounds) ((bounds_top c.node.bounds) +. 10.0);
+      component_decoration (bounds_left c.node.bounds) ((bounds_top c.node.bounds) +. 30.0);
+      [
+        rect_helper ~cls:[dnt.background_class] ~sty:s_style component_bounds;
+      ];
+    ]
   )
+
+let event_shape c e dnt =
+  let notch_x = 18. in
+  let notch_height = c.node.bounds.height /. 2. in
+  let event_width = c.node.bounds.width *. 0.85 in
+  let rx = 17. in
+  let tb = default_text_bounds c.node.bounds in
+  let text_bounds = {
+    tb with
+    x = Some (bounds_left tb +. (notch_x *. 0.8));
+    width = tb.width -. notch_x;
+  }
+  in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    path ~a:[
+      a_d (
+        d_of_path [
+          MA { x = bounds_left c.node.bounds; y = bounds_top c.node.bounds };
+          L { dx = notch_x; dy = notch_height; };
+          L { dx = (-. notch_x); dy = notch_height; };
+          H { dd = event_width };
+          A { rx = rx; ry = notch_height; x_axis_rotate = 0.; large_arc_flag = false; sweep_flag = false; dx = 0.; dy = -. c.node.bounds.height };
+          Z;
+        ]
+      );
+      a_class [dnt.background_class];
+      a_style (shape_style c.node.style);
+    ] [];
+  ]
+
+let elipse_shape c e dnt =
+  let text_bounds = default_text_bounds c.node.bounds in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    ellipse ~a:[
+      a_cx (((bounds_left c.node.bounds) +. c.node.bounds.width /. 2.), None);
+      a_cy (((bounds_top c.node.bounds) +. c.node.bounds.height /. 2.), None);
+      a_rx ((c.node.bounds.width /. 2.), None);
+      a_ry ((c.node.bounds.height /. 2.), None);
+      a_class [dnt.background_class];
+      a_style (shape_style c.node.style);
+    ] [];
+  ]
+
+let interface_shape c e dnt =
+  let ednt = { dnt with badge = Some "archimate-interface-badge" } in
+  match c.node.alt_view with
+  | true ->
+    rect_shape c e ednt
+  | false ->
+    elipse_shape c e ednt
+
+let process_path c e dnt =
+  let top = bounds_top c.node.bounds in
+  let shaft_top = (bounds_top c.node.bounds) +. c.node.bounds.height *. 0.15 in
+  let middle = (bounds_top c.node.bounds) +. c.node.bounds.height *. 0.5 in
+  let shaft_bottom = (bounds_bottom c.node.bounds) -. c.node.bounds.height *. 0.15 in
+  let bottom = bounds_bottom c.node.bounds in
+  let left = bounds_left c.node.bounds in
+  let arrow_back = (bounds_right c.node.bounds) -. c.node.bounds.height *. 0.5 in
+  let right = bounds_right c.node.bounds in
+  let text_bounds = bounds_reduce_by {
+    x = Some left;
+    y = Some shaft_top;
+    width = c.node.bounds.width -. c.node.bounds.height *. 0.25;
+    height = shaft_bottom -. shaft_top;
+  } 2.;
+  in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    path ~a:[
+      a_d (
+        asprintf "M %s %s L %s %s L %s %s L %s %s L %s %s L %s %s L %s %s z"
+          (vs left) (vs shaft_top)
+          (vs arrow_back) (vs shaft_top)
+          (vs arrow_back) (vs top)
+          (vs right) (vs middle)
+          (vs arrow_back) (vs bottom)
+          (vs arrow_back) (vs shaft_bottom)
+          (vs left) (vs shaft_bottom)
+        );
+      a_class [dnt.background_class];
+      a_style (shape_style c.node.style);
+    ] []
+  ]
+
+let process_shape c e dnt =
+  match c.node.alt_view with
+  | true ->
+    process_path c e { dnt with badge = None; }
+  | false ->
+    rounded_rect_shape c e { dnt with badge = Some "archimate-process-badge"; }
+
+let service_shape c e dnt =
+  let text_bounds = {
+    x = Some ((bounds_left c.node.bounds) +. 7.);
+    y = Some ((bounds_top c.node.bounds) +. 5.);
+    width = c.node.bounds.width -. 14.;
+    height = c.node.bounds.height -. 10.;
+  }
+  in
+  match c.node.alt_view with
+  | true ->
+    rect_shape c e { dnt with badge = Some "archimate-service-badge"; }
+  | false ->
+    let badge_bounds = rect_badge_bounds c.node.bounds in
+    draw_child e.name text_bounds c.node.style None badge_bounds [
+      rect_helper ~cls:[dnt.background_class] ~sty:(shape_style c.node.style) ~attrs:[
+        a_rx ((c.node.bounds.height /. 2.), None);
+        a_ry ((c.node.bounds.height /. 2.), None);
+      ] c.node.bounds;
+    ]
+
+let artifact_shape c e dnt =
+  let badge = Some "archimate-artifact-badge" in
+  let margin = 18. in
+  let sty = shape_style c.node.style in
+  let text_bounds = default_text_bounds c.node.bounds in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style badge badge_bounds [
+    g ~a:[
+      a_class [dnt.background_class];
+      a_style sty;
+    ] [
+      path ~a:[
+        a_d (
+          asprintf "M %s %s h %s l %s %s v %s h %s z"
+            (vs (bounds_left c.node.bounds)) (vs (bounds_top c.node.bounds))
+            (vs (c.node.bounds.width -. margin))
+            (vs margin) (vs margin)
+            (vs (c.node.bounds.height -. margin))
+            (vs (-. c.node.bounds.width))
+        );
+      ] [];
+      path ~a:[
+        a_d (
+          asprintf "M %s %s v %s h %s z"
+            (vs ((bounds_right c.node.bounds) -. margin)) (vs (bounds_top c.node.bounds))
+            (vs margin)
+            (vs margin)
+        );
+        a_class ["archimate-decoration"];
+      ] [];
+    ]
+  ]
+
+let motivation_shape c e dnt =
+  let badge_bounds = {
+    x = Some ((bounds_right c.node.bounds) -. 25.);
+    y = Some ((bounds_top c.node.bounds) +. 5.);
+    width = 20.;
+    height = 20.;
+  }
+  in
+  let text_bounds = default_text_bounds c.node.bounds in
+  let margin = 10. in
+  let width = c.node.bounds.width -. margin *. 2. in
+  let height = c.node.bounds.height -. margin *. 2. in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    path ~a:[
+      a_d (
+        asprintf "M %s %s h %s l %s %s v %s l %s %s h %s l %s %s v %s z"
+          (vs ((bounds_left c.node.bounds) +. margin)) (vs (bounds_top c.node.bounds))
+          (vs width)
+          (vs margin) (vs margin)
+          (vs height)
+          (vs (-. margin)) (vs margin)
+          (vs (-. width))
+          (vs (-. margin)) (vs (-. margin))
+          (vs (-. height))
+      );
+      a_class [dnt.background_class];
+      a_style (shape_style c.node.style);
+    ] [];
+  ]
+
+let data_shape c e dnt =
+  let margin = 10. in
+  let def_tb = default_text_bounds c.node.bounds in
+  let text_bounds = {
+    def_tb with
+    y = Some ((bounds_top def_tb) +. margin);
+    height = def_tb.height -. margin;
+  }
+  in
+  let deco_bounds = {
+    c.node.bounds with
+    height = margin;
+  }
+  in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    g ~a:[a_class [dnt.background_class]] [
+      rect_helper ~cls:[dnt.background_class] ~sty:(shape_style c.node.style) c.node.bounds;
+      rect_helper ~cls:["archimate-decoration"] deco_bounds;
+    ];
+  ]
+
+(* let representation_shape c e dnt = *)
+(*           @badge_bounds = child.bounds.with( *)
+(*             x: child.bounds.right - 25, *)
+(*             y: child.bounds.top + 5, *)
+(*             width: 20, *)
+(*             height: 20 *)
+(*           ) *)
+(*         def entity_shape(xml, bounds) *)
+(*           representation_path(xml, bounds) *)
+(*         end *)
+
+(*         def representation_path(xml, bounds) *)
+(*           xml.path( *)
+(*             d: [ *)
+(*               ["M", bounds.left, bounds.top], *)
+(*               ["v", bounds.height - 8], *)
+(*               ["c", 0.167 * bounds.width, 0.133 * bounds.height, *)
+(*                0.336 * bounds.width, 0.133 * bounds.height, *)
+(*                bounds.width * 0.508, 0], *)
+(*               ["c", 0.0161 * bounds.width, -0.0778 * bounds.height, *)
+(*                0.322 * bounds.width, -0.0778 * bounds.height, *)
+(*                bounds.width * 0.475, 0], *)
+(*               ["v", -(bounds.height - 8)], *)
+(*               "z" *)
+(*             ].flatten.join(" "), *)
+(*             class: background_class, style: shape_style *)
+(*           ) *)
+(*         end *)
+
+(* let device_shape c e dnt = *)
+(*         include NodeShape *)
+
+(*         def initialize(child,  *)
+(*           super *)
+(*         end *)
+
+(*         def entity_shape(xml, bounds) *)
+(*           case child.child_type *)
+(*           when 1 *)
+(*             @badge = "#archimate-device-badge" *)
+(*             node_path(xml, bounds) *)
+(*           else *)
+(*             device_path(xml, bounds) *)
+(*           end *)
+(*         end *)
+
+(*         def device_path(xml, bounds) *)
+(*           margin = 10 *)
+(*           xml.rect( *)
+(*             x: bounds.left, *)
+(*             y: bounds.top, *)
+(*             width: bounds.width, *)
+(*             height: bounds.height - margin, *)
+(*             rx: "6", *)
+(*             ry: "6", *)
+(*             class: background_class, *)
+(*             style: shape_style *)
+(*           ) *)
+(*           decoration_path = [ *)
+(*             "M", bounds.left + margin, bounds.bottom - margin, *)
+(*             "l", -margin, margin, *)
+(*             "h", bounds.width, *)
+(*             "l", -margin, -margin, *)
+(*             "z" *)
+(*           ].flatten.join(" ") *)
+(*           xml.path(d: decoration_path, class: background_class, style: shape_style) *)
+(*           xml.path(d: decoration_path, class: "archimate-decoration", style: shape_style) *)
+(*         end *)
+(*       end *)
+(*     end *)
+
+(* let meaning_shape = *)
+(*           def entity_shape(xml, bounds) *)
+(*           meaning_path(xml, bounds) *)
+(*         end *)
+
+(*         def meaning_path(xml, bounds) *)
+(*           pts = [ *)
+(*             Point.new(bounds.left + bounds.width * 0.04, bounds.top + bounds.height * 0.5), *)
+(*             Point.new(bounds.left + bounds.width * 0.5, bounds.top + bounds.height * 0.12), *)
+(*             Point.new(bounds.left + bounds.width * 0.94, bounds.top + bounds.height * 0.55), *)
+(*             Point.new(bounds.left + bounds.width * 0.53, bounds.top + bounds.height * 0.87) *)
+(*           ] *)
+(*           xml.path( *)
+(*             d: [ *)
+(*               "M", pts[0].x, pts[0].y, *)
+(*               "C", pts[0].x - bounds.width * 0.15, pts[0].y - bounds.height * 0.32, *)
+(*               pts[1].x - bounds.width * 0.3, pts[1].y - bounds.height * 0.15, *)
+(*               pts[1].x, pts[1].y, *)
+(*               "C", pts[1].x + bounds.width * 0.29, pts[1].y - bounds.height * 0.184, *)
+(*               pts[2].x + bounds.width * 0.204, pts[2].y - bounds.height * 0.304, *)
+(*               pts[2].x, pts[2].y, *)
+(*               "C", pts[2].x + bounds.width * 0.028, pts[2].y + bounds.height * 0.295, *)
+(*               pts[3].x + bounds.width * 0.156, pts[3].y + bounds.height * 0.088, *)
+(*               pts[3].x, pts[3].y, *)
+(*               "C", pts[3].x - bounds.width * 0.279, pts[3].y + bounds.height * 0.326, *)
+(*               pts[0].x - bounds.width * 0.164, pts[0].y + bounds.height * 0.314, *)
+(*               pts[0].x, pts[0].y *)
+(*             ].flatten.join(" "), *)
+(*             class: background_class, style: shape_style *)
+(*           ) *)
+(*         end *)
+(*       end *)
+
+(* let node_shape = *)
+(*           def entity_shape(xml, bounds) *)
+(*           case child.child_type *)
+(*           when 1 *)
+(*             @badge_bounds = bounds.with( *)
+(*               x: bounds.right - 25, *)
+(*               y: bounds.top + 5, *)
+(*               width: 20, *)
+(*               height: 20 *)
+(*             ) *)
+(*             @badge = "#archimate-node-badge" *)
+(*             rect_path(xml, bounds) *)
+(*           else *)
+(*             node_path(xml, bounds) *)
+(*           end *)
+(* end *)
+(*         def node_path(xml, bounds) *)
+(*           margin = 14 *)
+(*           @badge_bounds = DataModel::Bounds.new( *)
+(*             x: bounds.right - margin - 25, *)
+(*             y: bounds.top + margin + 5, *)
+(*             width: 20, *)
+(*             height: 20 *)
+(*           ) *)
+(*           node_box_height = bounds.height - margin *)
+(*           node_box_width = bounds.width - margin *)
+(*           @text_bounds = DataModel::Bounds.new( *)
+(*             x: bounds.left + 1, *)
+(*             y: bounds.top + margin + 1, *)
+(*             width: node_box_width - 2, *)
+(*             height: node_box_height - 2 *)
+(*           ) *)
+(*           xml.g(class: background_class, style: shape_style) do *)
+(*             xml.path( *)
+(*               d: [ *)
+(*                 ["M", bounds.left, bounds.bottom], *)
+(*                 ["v", -node_box_height], *)
+(*                 ["l", margin, -margin], *)
+(*                 ["h", node_box_width], *)
+(*                 ["v", node_box_height], *)
+(*                 ["l", -margin, margin], *)
+(*                 "z" *)
+(*               ].flatten.join(" ") *)
+(*             ) *)
+(*             xml.path( *)
+(*               d: [ *)
+(*                 ["M", bounds.left, bounds.top + margin], *)
+(*                 ["l", margin, -margin], *)
+(*                 ["h", node_box_width], *)
+(*                 ["v", node_box_height], *)
+(*                 ["l", -margin, margin], *)
+(*                 ["v", -node_box_height], *)
+(*                 "z", *)
+(*                 ["M", bounds.right, bounds.top], *)
+(*                 ["l", -margin, margin] *)
+(*               ].flatten.join(" "), *)
+(*               class: "archimate-decoration" *)
+(*             ) *)
+(*             xml.path( *)
+(*               d: [ *)
+(*                 ["M", bounds.left, bounds.top + margin], *)
+(*                 ["h", node_box_width], *)
+(*                 ["l", margin, -margin], *)
+(*                 ["M", bounds.left + node_box_width, bounds.bottom], *)
+(*                 ["v", -node_box_height] *)
+(*               ].flatten.join(" "), *)
+(*               style: "fill:none;stroke:inherit;" *)
+(*             ) *)
+(*           end *)
+(*         end *)
+
+let note_shape c e dnt =
+  let text_bounds = default_text_bounds c.node.bounds in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  let bounds = c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    path ~a:[
+      a_d (
+        asprintf "m %s %s h %s v %s l %s %s h %s z"
+          (vs (bounds_left bounds)) (vs (bounds_top bounds))
+          (vs bounds.width)
+          (vs (bounds.height -. 8.))
+          "-8" "8"
+          (vs (-. (bounds.width -. 8.)))
+      );
+      a_class ["archimate-note-background"];
+      a_style (shape_style c.node.style);
+    ] [];
+  ]
+
+let product_shape c e dnt =
+  let text_bounds = default_text_bounds c.node.bounds in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    g ~a:[a_class [dnt.background_class]] [
+      rect_helper ~cls:[dnt.background_class] ~sty:(shape_style c.node.style) c.node.bounds;
+      rect_helper ~cls:["archimate-decoration"] {
+        c.node.bounds with
+        width = c.node.bounds.width /. 2.;
+        height = 8.;
+      };
+    ]
+  ]
+
+let value_shape c e dnt =
+  let def_tb = default_text_bounds c.node.bounds in
+  let text_bounds = {
+    x = Some ((bounds_left def_tb) +. 10.);
+    y = Some ((bounds_top def_tb) +. 10.);
+    width = def_tb.width -. 20.;
+    height = def_tb.height -. 20.;
+  }
+  in
+  let bounds = c.node.bounds in
+  let cx = (bounds_left bounds) +. bounds.width /. 2. in
+  let rx = bounds.width /. 2. -. 1. in
+  let cy = (bounds_top bounds) +. bounds.height /. 2. in
+  let ry = bounds.height /. 2. -. 1. in
+  let badge_bounds = rect_badge_bounds c.node.bounds in
+  draw_child e.name text_bounds c.node.style dnt.badge badge_bounds [
+    ellipse ~a:[
+      a_cx (cx, None);
+      a_cy (cy, None);
+      a_rx (rx, None);
+      a_ry (ry, None);
+      a_class [dnt.background_class];
+      a_style (shape_style c.node.style)
+    ] [];
+  ]
+
 
 let child_diagram_node_type c e =
   let layer_background_class l =
@@ -349,14 +786,14 @@ let child_diagram_node_type c e =
   | OrJunction -> { default_diagram_node_type with g_class = "archimate-or-junction"; entity_shape = rect_shape; background_class = "archimate-or-junction-background"; }
   | BusinessActor -> { default_diagram_node_type with g_class = "archimate-business-actor"; badge = Some "archimate-actor-badge"; }
   | BusinessCollaboration -> { default_diagram_node_type with g_class = "archimate-business-collaboration"; badge = Some "archimate-collaboration-badge"; }
-  | BusinessEvent -> { default_diagram_node_type with g_class = "archimate-business-event"; }
-  | BusinessFunction  -> { default_diagram_node_type with g_class = "archimate-business-function"; badge = Some "archimate-function-badge"; }
-  | BusinessInteraction -> { default_diagram_node_type with g_class = "archimate-business-interaction"; badge = Some "archimate-interaction-badge"; }
-  | BusinessInterface -> { default_diagram_node_type with g_class = "archimate-business-interface"; badge = Some "archimate-interface-badge"; }
+  | BusinessEvent -> { default_diagram_node_type with g_class = "archimate-business-event"; entity_shape = event_shape; }
+  | BusinessFunction  -> { default_diagram_node_type with g_class = "archimate-business-function"; badge = Some "archimate-function-badge"; entity_shape = rounded_rect_shape; }
+  | BusinessInteraction -> { default_diagram_node_type with g_class = "archimate-business-interaction"; badge = Some "archimate-interaction-badge"; entity_shape = rounded_rect_shape; }
+  | BusinessInterface -> { default_diagram_node_type with g_class = "archimate-business-interface"; badge = Some "archimate-interface-badge"; entity_shape = interface_shape; }
   | BusinessObject -> { default_diagram_node_type with g_class = "archimate-business-object"; }
   | BusinessProcess -> { default_diagram_node_type with g_class = "archimate-business-process"; badge = Some "archimate-process-badge"; }
   | BusinessRole -> { default_diagram_node_type with g_class = "archimate-business-role"; badge = Some "archimate-role-badge"; }
-  | BusinessService -> { default_diagram_node_type with g_class = "archimate-business-service"; badge = Some "archimate-service-badge"; }
+  | BusinessService -> { default_diagram_node_type with g_class = "archimate-business-service"; badge = Some "archimate-service-badge"; entity_shape = service_shape; }
   | Contract -> { default_diagram_node_type with g_class = "archimate-contract"; }
   | Meaning -> { default_diagram_node_type with g_class = "archimate-meaning"; }
   | Product -> { default_diagram_node_type with g_class = "archimate-product"; }
@@ -364,17 +801,17 @@ let child_diagram_node_type c e =
   | Value -> { default_diagram_node_type with g_class = "archimate-value"; }
   | ApplicationCollaboration -> { default_diagram_node_type with g_class = "archimate-application-collaboration"; badge = Some "archimate-collaboration-badge"; }
   | ApplicationComponent -> { default_diagram_node_type with g_class = "archimate-application-component"; entity_shape = component_shape; }
-  | ApplicationFunction -> { default_diagram_node_type with g_class = "archimate-application-function"; badge = Some "archimate-function-badge"; }
-  | ApplicationInteraction -> { default_diagram_node_type with g_class = "archimate-application-interaction"; badge = Some "archimate-interaction-badge"; }
-  | ApplicationInterface -> { default_diagram_node_type with g_class = "archimate-application-interface"; badge = Some "archimate-interface-badge"; }
-  | ApplicationService -> { default_diagram_node_type with g_class = "archimate-application-service"; badge = Some "archimate-service-badge"; }
+  | ApplicationFunction -> { default_diagram_node_type with g_class = "archimate-application-function"; badge = Some "archimate-function-badge"; entity_shape = rounded_rect_shape; }
+  | ApplicationInteraction -> { default_diagram_node_type with g_class = "archimate-application-interaction"; badge = Some "archimate-interaction-badge"; entity_shape = rounded_rect_shape; }
+  | ApplicationInterface -> { default_diagram_node_type with g_class = "archimate-application-interface"; badge = Some "archimate-interface-badge"; entity_shape = interface_shape; }
+  | ApplicationService -> { default_diagram_node_type with g_class = "archimate-application-service"; badge = Some "archimate-service-badge"; entity_shape = service_shape; }
   | DataObject -> { default_diagram_node_type with g_class = "archimate-data-object"; }
-  | Artifact -> { default_diagram_node_type with g_class = "archimate-artifact"; }
+  | Artifact -> { default_diagram_node_type with g_class = "archimate-artifact"; entity_shape = artifact_shape; }
   | CommunicationPath -> { default_diagram_node_type with g_class = "archimate-communication-path"; badge = Some "archimate-communication-badge"; }
   | Device -> { default_diagram_node_type with g_class = "archimate-device"; badge = Some "archimate-device-badge"; }
-  | InfrastructureFunction -> { default_diagram_node_type with g_class = "archimate-infrastructure-function"; badge = Some "archimate-function-badge"; }
-  | InfrastructureInterface -> { default_diagram_node_type with g_class = "archimate-infrastructure-interface"; badge = Some "archimate-interface-badge"; }
-  | InfrastructureService -> { default_diagram_node_type with g_class = "archimate-infrastructure-service"; badge = Some "archimate-service-badge"; }
+  | InfrastructureFunction -> { default_diagram_node_type with g_class = "archimate-infrastructure-function"; badge = Some "archimate-function-badge"; entity_shape = rounded_rect_shape; }
+  | InfrastructureInterface -> { default_diagram_node_type with g_class = "archimate-infrastructure-interface"; badge = Some "archimate-interface-badge"; entity_shape = interface_shape; }
+  | InfrastructureService -> { default_diagram_node_type with g_class = "archimate-infrastructure-service"; badge = Some "archimate-service-badge"; entity_shape = service_shape; }
   | Network -> { default_diagram_node_type with g_class = "archimate-network"; badge = Some "archimate-network-badge"; }
   | Node -> { default_diagram_node_type with g_class = "archimate-node"; badge = Some "archimate-node-badge"; }
   | SystemSoftware -> { default_diagram_node_type with g_class = "archimate-system-software"; badge = Some "archimate-system-software-badge"; }
@@ -389,11 +826,11 @@ let child_diagram_node_type c e =
   | Gap -> { default_diagram_node_type with g_class = "archimate-gap"; badge = Some "archimate-gap-badge"; }
   | Location -> { default_diagram_node_type with g_class = "archimate-location"; badge = Some "archimate-location-badge"; }
   | Plateau -> { default_diagram_node_type with g_class = "archimate-plateau"; badge = Some "archimate-plateau-badge"; }
-  | WorkPackage -> { default_diagram_node_type with g_class = "archimate-work-package"; }
+  | WorkPackage -> { default_diagram_node_type with g_class = "archimate-work-package"; entity_shape = rounded_rect_shape; }
   | DiagramModelReference -> { default_diagram_node_type with g_class = "archimate-diagram-model-reference"; badge = Some "archimate-diagram-model-reference-badge"; }
   | Group -> { default_diagram_node_type with g_class = "archimate-group"; entity_shape = group_shape; }
   | DiagramObject -> { default_diagram_node_type with g_class = "archimate-diagram-object"; }
-  | Note -> { default_diagram_node_type with g_class = "archimate-note"; }
+  | Note -> { default_diagram_node_type with g_class = "archimate-note"; entity_shape = note_shape; background_class = "archimate-note-background"; }
   | SketchModelSticky -> { default_diagram_node_type with g_class = "archimate-sketch-model-sticky"; }
 
 (* TODO: Transform only needed only for Archi file types *)
@@ -404,8 +841,8 @@ let group_attrs e g_class bounds_offset =
     | None -> l
   in
   add_bounds bounds_offset [
-    Svg.a_id e.id;
-    Svg.a_class [g_class];
+    a_id e.id;
+    a_class [g_class];
   ]
 
 let rec to_svg m bounds_offset (c : child) =
@@ -413,24 +850,24 @@ let rec to_svg m bounds_offset (c : child) =
   let dnt = child_diagram_node_type c e in
   let add_title e l =
     match e.name with
-    | Some name -> (Svg.title (Svg.pcdata name) :: l)
+    | Some name -> (title (pcdata name) :: l)
     | None -> l
   in
   let add_desc c l =
     match (List.length c.documentation) with
     | 0 -> l
     | _ ->
-      (Svg.desc (Svg.pcdata (String.concat "\n\n" (List.map (fun doc -> doc.content) c.documentation)))) :: l
+      (desc (pcdata (String.concat "\n\n" (List.map (fun doc -> doc.content) c.documentation)))) :: l
   in
   let title_dest c e =
     add_title e (
       add_desc c []
     )
   in
-  Svg.g ~a:(group_attrs e dnt.g_class bounds_offset) (
+  g ~a:(group_attrs e dnt.g_class bounds_offset) (
     List.concat [
       title_dest c e;
-      dnt.entity_shape c e dnt bounds_offset;
+      dnt.entity_shape c e dnt;
       List.map (to_svg m (Some c.node.bounds)) c.node.children
     ]
   )
@@ -451,7 +888,7 @@ let diagram_to_svg (m : Datamodel.model) (d : Datamodel.diagram) : string =
   let viewbox = update_viewbox els rels in
   let (min_x, min_y, width, height) = viewbox in
   let template = Mustache.of_string Svg_template.svg in
-  let contents = List.map (Format.asprintf "%a\n" (Svg.pp_elt ())) (List.concat [els; rels])
+  let contents = List.map (Format.asprintf "%a\n" (pp_elt ())) (List.concat [els; rels])
   in
   let json = `O [
       "stylesheet", `String Svg_template.css;
@@ -468,7 +905,7 @@ let export outdir (m : Datamodel.model) (d : Datamodel.diagram) =
   let filename = sprintf "%s/%s.svg" outdir d.id in
   let svg_file = open_out filename in
   let fmt = Format.formatter_of_out_channel svg_file in
-  (* Svg.pp () (diagram_to_svg m d); *)
+  (* pp () (diagram_to_svg m d); *)
   fprintf fmt "%s" (diagram_to_svg m d);
   close_out svg_file
 

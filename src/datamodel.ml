@@ -32,6 +32,9 @@ let bounds_top b =
   | Some y -> y
   | None -> 0.0
 
+let bounds_bottom b =
+  (bounds_top b) +. b.height
+
 let bounds_reduce_by b f =
   let half_f = f /. 2.0 in
   {
@@ -226,6 +229,7 @@ type child_attrs = {
   children : (child_attrs identified) list;
   source_connections : source_connection list;
   style : style option;
+  alt_view : bool;
 }
 
 type child = child_attrs identified

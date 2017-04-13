@@ -53,6 +53,11 @@ let make_child attribute_map childs =
       style = find_optional_node is_style to_style childs;
       children = find_all_nodes is_child to_child childs;
       source_connections = find_all_nodes is_source_connection to_source_connection childs;
+      alt_view = (
+        match (fetch_optional "type" attribute_map) with
+        | Some s -> if s = "1" then true else false
+        | None -> false
+      );
     };
   }
 

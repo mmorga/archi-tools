@@ -1,5 +1,5 @@
 open Datamodel
-open AttributeMap
+open Attribute_map
 
 (* debug helpers *)
 
@@ -55,7 +55,7 @@ let make_child attribute_map childs =
       source_connections = find_all_nodes is_source_connection to_source_connection childs;
       alt_view = (
         match (fetch_optional "type" attribute_map) with
-        | Some s -> if s = "1" then true else false
+        | Some s -> s = "1"
         | None -> false
       );
     };
@@ -159,7 +159,7 @@ let make_source_connection attribute_map childs =
 
 let make_folder_item attribute_map childs =
   let el_type =
-    let strip_archimate s = String.sub s 10 ((String.length s) - 10) in
+    let strip_archimate s = Str.string_after s 10 in
     fetch_ns "http://www.w3.org/2001/XMLSchema-instance" "type" attribute_map |>
     strip_archimate
   in
@@ -275,10 +275,6 @@ let in_archimate21_model src =
 let read file : Datamodel.model =
   let ic = open_in file in
   let dtd, tree_model = in_archimate21_model (`Channel ic) in
-  let model =
-    match tree_model with
-    | Model m -> m
-    | _ -> failwith "Whelp, I didn't expect that"
-  in
-  model
-
+  match tree_model with
+  | Model m -> m
+  | _ -> failwith "Whelp, I didn't expect that"

@@ -52,8 +52,7 @@ let to_rgba c =
   | None -> None
 
 let shape_style s =
-  let maybe_string v =
-    match v with
+  let maybe_string = function
     | Some v -> Some (string_of_int v)
     | None -> None
   in
@@ -121,7 +120,7 @@ let bounds_attrs b =
 let entity_badge badge badge_bounds (l : node_content_type) : node_content_type =
   match badge with
   | Some b ->
-    let badge_use = (use ~a:(List.append (bounds_attrs badge_bounds) [a_xlink_href ("#" ^ b)]) []) in
+    let badge_use = (use ~a:(List.append (bounds_attrs badge_bounds) [a_href ("#" ^ b)]) []) in
     badge_use :: l
   | None -> l
 
@@ -754,8 +753,7 @@ let value_shape c e dnt =
 
 
 let child_diagram_node_type c e =
-  let layer_background_class l =
-    match l with
+  let layer_background_class = function
     | StrategyLayer -> "archimate-strategy-background"
     | BusinessLayer -> "archimate-business-background"
     | ApplicationLayer -> "archimate-application-background"

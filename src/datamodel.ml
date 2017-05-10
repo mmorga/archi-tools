@@ -164,8 +164,7 @@ type element_type =
   Note |
   SketchModelSticky
 
-let string_of_element_type et =
-  match et with
+let string_of_element_type = function
   | AndJunction -> "AndJunction"
   | Junction -> "Junction"
   | OrJunction -> "OrJunction"
@@ -235,8 +234,7 @@ type child_attrs = {
 type child = child_attrs identified
 
 let print_child c =
-  let opt_rep s =
-    match s with
+  let opt_rep = function
     | Some s -> s
     | None -> "None"
   in
@@ -359,8 +357,7 @@ type element_name_type = {
 }
 
 let effective_child_element (c : child) m =
-  let expected_id opt_id =
-    match opt_id with
+  let expected_id = function
     | Some id -> id
     | None -> print_child c; invalid_arg "Expected an id attribute for Child type"
   in
@@ -406,73 +403,59 @@ let effective_child_element (c : child) m =
     }
   | _ -> invalid_arg ("Unexpected element type `" ^ (string_of_element_type c.node.el_type) ^ "` for child")
 
-let is_bendpoint a =
-  match a with
+let is_bendpoint = function
   | Bendpoint _ -> true
   | _ -> false
 
-let to_bendpoint bv =
-  match bv with
+let to_bendpoint = function
   | Bendpoint b -> b
   | _ -> invalid_arg "Expected only bendpoint values"
 
-let is_bounds a =
-  match a with
+let is_bounds = function
   | Bounds _ -> true
   | _ -> false
 
-let to_bounds bv =
-  match bv with
+let to_bounds = function
   | Bounds b -> b
   | _ -> invalid_arg "Expected only bounds values"
 
-let is_child a =
-  match a with
+let is_child = function
   | Child _ -> true
   | _ -> false
 
-let to_child a =
-  match a with
+let to_child = function
   | Child c -> c
   | _ -> invalid_arg "Expected only child values"
 
-let is_diagram a =
-  match a with
+let is_diagram = function
   | Diagram _ -> true
   | _ -> false
 
-let to_diagram n =
-  match n with
+let to_diagram = function
   | Diagram d -> d
   | _ -> invalid_arg "Expected only diagram values"
 
-let is_documentation a =
-  match a with
+let is_documentation = function
   | Documentation _ -> true
   | _ -> false
 
-let to_documentation a =
-  match a with
+let to_documentation = function
   |  Documentation d -> d
   | _ -> invalid_arg "Expected only documentation values"
 
-let is_element a =
-  match a with
+let is_element = function
   | Element _ -> true
   | _ -> false
 
-let to_element a =
-  match a with
+let to_element = function
   | Element b -> b
   | _ -> invalid_arg "Expected only element values"
 
-let is_folder a =
-  match a with
+let is_folder = function
   | Folder _ -> true
   | _ -> false
 
-let to_folder a =
-  match a with
+let to_folder = function
   | Folder (b, c) -> b
   | _ -> invalid_arg "Expected only folder values"
 
@@ -482,61 +465,49 @@ let filter_folders childs =
 let filter_folder_recs childs =
   filter_folders childs |> List.map to_folder
 
-let is_property a =
-  match a with
+let is_property = function
   | Property _ -> true
   | _ -> false
 
-let to_property a =
-  match a with
+let to_property = function
   | Property p -> p
   | _ -> invalid_arg "Expected only property values"
 
-let is_relationship a =
-  match a with
+let is_relationship = function
   | Relationship _ -> true
   | _ -> false
 
-let to_relationship a =
-  match a with
+let to_relationship = function
   | Relationship b -> b
   | _ -> invalid_arg "Expected only relationship values"
 
-let is_source_connection a =
-  match a with
+let is_source_connection = function
   | Source_connection _ -> true
   | _ -> false
 
-let to_source_connection bv =
-  match bv with
+let to_source_connection = function
   | Source_connection b -> b
   | _ -> invalid_arg "Expected only source_connection values"
 
-let is_style a =
-  match a with
+let is_style = function
   | Style _ -> true
   | _ -> false
 
-let to_style a =
-  match a with
+let to_style = function
   | Style b -> b
   | _ -> invalid_arg "Expected only style values"
 
 (* Return the string content of Data nodes in a list of children *)
 let data_child_content childs =
-  let find_data_item a =
-    match a with
+  let find_data_item = function
     | Data _ -> true
     | _ -> false
   in
   try
     let data_item = List.find find_data_item childs in
-    let content =
-      match data_item with
-      | Data s -> s
-      | _ -> ""
-    in
-    content
+    match data_item with
+    | Data s -> s
+    | _ -> ""
   with Not_found ->
     ""
 
@@ -574,8 +545,7 @@ let folder_items childs =
   List.filter is_folder_item childs |>
   List.map id_for_tree_node
 
-let rec find_all_in_folder is_kind to_kind folderv =
-  match folderv with
+let rec find_all_in_folder is_kind to_kind = function
   | Folder (f, c) ->
     let immediate_children = find_all_nodes is_kind to_kind c in
     let child_folders = filter_folders c in

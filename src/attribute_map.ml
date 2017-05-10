@@ -1,4 +1,4 @@
-module OrderedXmlName =
+module Ordered_xml_name =
 struct type t = Xmlm.name
   let compare a b =
     let a0, a1 = a in
@@ -8,14 +8,14 @@ struct type t = Xmlm.name
     | 0 -> String.compare a1 b1
     | _ -> nscmp
 end
-module AttributeMap = Map.Make(OrderedXmlName)
+module Attribute_map = Map.Make(Ordered_xml_name)
 
 let map_attributes attrs =
   let add_attr_map attr m =
     let name, value = attr in
-    AttributeMap.add name value m
+    Attribute_map.add name value m
   in
-  List.fold_right add_attr_map attrs AttributeMap.empty
+  List.fold_right add_attr_map attrs Attribute_map.empty
 
 let has_type key v =
   key = ("", "type")
@@ -25,7 +25,7 @@ let key_exists key k v =
 
 let fetch_ns ns key m =
   try
-    AttributeMap.find (ns, key) m
+    Attribute_map.find (ns, key) m
   with Not_found ->
     Format.fprintf Format.std_formatter "Unable to find attribute '%s:%s' in attribute map" ns key;
     raise Not_found
@@ -34,12 +34,12 @@ let fetch key m =
   fetch_ns "" key m
 
 let fetch_with_default key default m =
-  match AttributeMap.exists (key_exists key) m with
+  match Attribute_map.exists (key_exists key) m with
   | true -> fetch key m
   | false -> default
 
 let fetch_optional key m =
-  match AttributeMap.exists (key_exists key) m with
+  match Attribute_map.exists (key_exists key) m with
   | true -> Some (fetch key m)
   | false -> None
 
@@ -58,8 +58,8 @@ let fetch_float key m =
 
 let print_attribute_map attribute_map =
   Format.open_hvbox 2;
-  Format.print_string "AttributeMap (";
-  AttributeMap.iter (fun nk v ->
+  Format.print_string "Attribute_map (";
+  Attribute_map.iter (fun nk v ->
       let k =
         match nk with
         | "", k -> k

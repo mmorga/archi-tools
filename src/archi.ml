@@ -28,7 +28,7 @@ let svgs copts outdir archifiles =
   in
   List.iter (save_svgs outdir) archifiles
 
-let help copts man_format cmds topic = match topic with
+let help copts man_format cmds = function
 | None -> `Help (`Pager, None) (* help about the program. *)
 | Some topic ->
     let topics = "topics" :: "patterns" :: "environment" :: cmds in

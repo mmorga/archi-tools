@@ -103,13 +103,11 @@ struct
       let re = Str.regexp "0+$" in
       Str.global_replace re "" (asprintf "%f" v)
 
-  let bs b =
-    match b with
+  let bs = function
     | false -> "0"
     | true -> "1"
 
-  let string_of_path_element pe =
-    match pe with
+  let string_of_path_element = function
     | A a ->
       asprintf "a %s %s %s %s %s %s %s" (vs a.rx) (vs a.ry) (vs a.x_axis_rotate)
         (bs a.large_arc_flag) (bs a.sweep_flag) (vs a.dx) (vs a.dy)

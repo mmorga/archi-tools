@@ -5,6 +5,7 @@ true:   package(ANSITerminal)
 true:   package(Tyxml.ppx)
 true:   package(Mustache)
 true:   package(Str)
+false:  package(ocamllint.ppx)
 true:   debug
 true:   bin_annot
 true:   short_paths

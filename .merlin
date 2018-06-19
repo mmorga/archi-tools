@@ -1,11 +1,5 @@
 S src
 S test
-B _build/**
-PKG ounit
-PKG Xmlm
-PKG Cmdliner
-PKG ANSITerminal
-PKG Tyxml
-PKG Mustache
-NOREC
+B _build
+PKG ounit Xmlm Cmdliner ANSITerminal Tyxml Mustache
 EXT ounit

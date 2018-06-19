@@ -6,7 +6,8 @@ let () =
     ~exit
     ("ArchiMate" >:::
       [
-        TestArchimate.tests;
+(*         TestArchimate.tests;
         TestXmlUtil.tests;
+ *)        TestColor.tests;
       ]
     );

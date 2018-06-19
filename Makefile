@@ -40,7 +40,7 @@ sanity:
 			ocamlfind query $(OPAM_PKGS)
 
 test:
-			$(OCB) -I test test.native
+			ocamlbuild -use-ocamlfind -Is test,src test.native
 			./test.native
 
 .PHONY: 	all clean byte native profile debug sanity test

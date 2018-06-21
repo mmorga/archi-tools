@@ -1,0 +1,18 @@
+{
+	"folders":
+	[
+		{
+			"path": ".",
+      "folder_exclude_patterns": [
+        "_build",
+        "tmp"
+      ],
+      "file_exclude_patterns": [
+        "*.byte",
+        "*.native",
+        "*.sublime*",
+        "TAGS"
+      ]
+    }
+  ]
+}

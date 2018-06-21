@@ -9,11 +9,6 @@ let root =
 in Sys.chdir root;;
 
 #use "topfind";;
-(* #require "batteries";; *)
-(* #require "core";; *)
-(* #require "async";; *)
-(* #require "cohttp";; *)
-(* #require "cohttp.async";; *)
 #require "oUnit";;
 #require "Xmlm";;
 #directory "_build/src";;
